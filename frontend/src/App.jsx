@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 const API = "https://leadhunter-qpvs.onrender.com";
 
@@ -31,59 +31,49 @@ const css = {
   card: { background: AN, border: `1px solid ${BD}`, borderRadius: 10, padding: 22, marginBottom: 18 },
   cardTitle: { fontSize: 10, letterSpacing: "2px", textTransform: "uppercase", color: MU, marginBottom: 18, display: "flex", alignItems: "center", gap: 10 },
   cardLine: { flex: 1, height: 1, background: BD },
-  table: { width: "100%", borderCollapse: "collapse", fontSize: 13, tableLayout: "fixed" },
-  th: { textAlign: "left", padding: "9px 12px", fontSize: 10, letterSpacing: "1.5px", textTransform: "uppercase", color: MU2, borderBottom: `1px solid ${BD}`, fontWeight: 500 },
-  td: (hov) => ({ padding: "12px 12px", borderBottom: `1px solid ${BD}`, color: TX, verticalAlign: "middle", background: hov ? AN2 : "transparent", transition: "background 0.15s" }),
-  scorePill: (sc) => ({ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 6, fontSize: 13, fontWeight: 600, ...(sc >= 5 ? { background: "#1a2600", color: Y, border: "1px solid #3a4f00" } : sc >= 3 ? { background: "#201600", color: "#EF9F27", border: "1px solid #3d2c00" } : { background: "#200000", color: "#F09595", border: "1px solid #3d0000" }) }),
+  scorePill: (sc) => ({ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 6, fontSize: 14, fontWeight: 600, ...(sc >= 5 ? { background: "#1a2600", color: Y, border: "1px solid #3a4f00" } : sc >= 3 ? { background: "#201600", color: "#EF9F27", border: "1px solid #3d2c00" } : { background: "#200000", color: "#F09595", border: "1px solid #3d0000" }) }),
   badge: (t) => ({ display: "inline-block", padding: "3px 9px", borderRadius: 4, fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", fontWeight: 500, ...(t === "da inviare" ? { background: "#0d1a00", color: Y, border: "1px solid #2a4000" } : t === "inviata" ? { background: "#0a1f00", color: "#97C459", border: "1px solid #1d3d00" } : { background: AN3, color: MU, border: `1px solid ${BD}` }) }),
-  fbBtn: (on, type) => ({ width: 28, height: 28, borderRadius: 5, border: on ? (type === "ok" ? "1px solid #3a4f00" : "1px solid #4d0000") : `1px solid ${BD}`, background: on ? (type === "ok" ? "#0d1a00" : "#1f0000") : "transparent", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }),
   input: { background: AN3, border: `1px solid ${BD2}`, borderRadius: 6, padding: "10px 13px", fontSize: 13, color: TX, outline: "none", width: "100%" },
   select: { background: AN3, border: `1px solid ${BD2}`, borderRadius: 6, padding: "10px 13px", fontSize: 13, color: TX, outline: "none" },
   btnGhost: { background: "transparent", border: `1px solid ${BD2}`, borderRadius: 6, padding: "10px 18px", fontSize: 11, letterSpacing: "1px", textTransform: "uppercase", color: MU, cursor: "pointer" },
   btnSm: { background: "transparent", border: `1px solid ${BD2}`, borderRadius: 5, padding: "6px 13px", fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", color: MU, cursor: "pointer" },
-  btnSend: { background: "transparent", border: "1px solid #2a4000", borderRadius: 5, padding: "6px 13px", fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", color: "#97C459", cursor: "pointer" },
-  formRow: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 },
+  btnGen: { background: Y, border: "none", borderRadius: 5, padding: "6px 14px", fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", color: BK, cursor: "pointer", fontWeight: 600 },
+  btnDel: { background: "transparent", border: "1px solid #4d0000", borderRadius: 5, padding: "6px 13px", fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", color: "#F09595", cursor: "pointer" },
   fieldLabel: { fontSize: 10, letterSpacing: "1.5px", textTransform: "uppercase", color: MU, marginBottom: 7, display: "block" },
-  stepGrid: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginTop: 14 },
+  formRow: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 },
   step: (st) => ({ background: st === "active" ? "#0d1a00" : st === "done" ? "#0a1400" : AN2, border: st === "active" ? "1px solid #3a4f00" : st === "done" ? "1px solid #2a3800" : `1px solid ${BD}`, borderRadius: 8, padding: "14px 10px", textAlign: "center", fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", color: st === "active" ? Y : st === "done" ? "#97C459" : MU2 }),
-  emailCard: { background: AN2, border: `1px solid ${BD}`, borderRadius: 10, padding: "18px 20px", marginBottom: 12 },
+  stepGrid: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginTop: 14 },
   barWrap: { height: 4, background: BD, borderRadius: 2, overflow: "hidden" },
-  criteriaRow: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", background: AN2, border: `1px solid ${BD}`, borderRadius: 7, marginBottom: 7 },
-  calibDot: (t) => ({ width: 8, height: 8, borderRadius: "50%", background: t === "pos" ? Y : t === "neg" ? "#E24B4A" : BD2 }),
+  emailCard: { background: AN2, border: `1px solid ${BD}`, borderRadius: 10, padding: "18px 20px", marginBottom: 12 },
   histRow: (last) => ({ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: last ? "none" : `1px solid ${BD}` }),
   histBadge: { background: "#0d1a00", color: Y, border: "1px solid #2a4000", borderRadius: 4, padding: "2px 9px", fontSize: 11, letterSpacing: "1px" },
   linkBtn: { background: "transparent", border: "none", color: MU, cursor: "pointer", fontSize: 11, letterSpacing: "1px", textTransform: "uppercase", padding: "5px 8px" },
+  leadRow: { background: AN2, border: `1px solid ${BD}`, borderRadius: 9, marginBottom: 8, overflow: "hidden" },
+  leadHead: { display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", cursor: "pointer" },
+  leadDetail: { padding: "0 16px 16px 16px", borderTop: `1px solid ${BD}` },
+  critBar: (v) => ({ height: 5, borderRadius: 3, background: v >= 7 ? "#639922" : v >= 4 ? "#EF9F27" : "#E24B4A", width: `${v * 10}%` }),
 };
 
-const CRITERIA = [
-  { name: "Mobile responsive", peso: "1.4x", calib: "pos" },
-  { name: "Velocità caricamento", peso: "1.2x", calib: "pos" },
-  { name: "CTA chiara", peso: "1.0x", calib: "neu" },
-  { name: "SEO on-page", peso: "0.9x", calib: "neg" },
-  { name: "Design moderno", peso: "1.1x", calib: "neu" },
-  { name: "Presenza social", peso: "0.8x", calib: "neg" },
-  { name: "Contatti visibili", peso: "1.0x", calib: "neu" },
-];
+function parseCriteri(str) {
+  try { return JSON.parse(str); } catch { return null; }
+}
+
+const CRIT_LABELS = { mobile: "Mobile", velocita: "Velocita", cta: "CTA", seo: "SEO", design: "Design", social: "Social", contatti: "Contatti" };
 
 function Overview({ leads, runs, setTab }) {
-  const avg = leads.length ? (leads.reduce((s, l) => s + l.score, 0) / leads.length).toFixed(1) : 0;
+  const active = leads.filter((l) => l.fb !== "scartato");
+  const avg = active.length ? (active.reduce((s, l) => s + l.score, 0) / active.length).toFixed(1) : 0;
   const emailGen = leads.filter((l) => l.email_body).length;
-  const fbOk = leads.filter((l) => l.fb === "ok").length;
-  const fbTot = leads.filter((l) => l.fb).length;
-  const calibPct = fbTot ? Math.round((fbOk / fbTot) * 100) : 0;
-  const scoreHi = leads.filter((l) => l.score >= 5).length;
-  const scoreMid = leads.filter((l) => l.score >= 3 && l.score < 5).length;
-  const scoreLo = leads.filter((l) => l.score < 3 && l.score > 0).length;
-  const tot = scoreHi + scoreMid + scoreLo || 1;
+  const scartati = leads.filter((l) => l.fb === "scartato").length;
 
   return (
     <div>
       <div style={css.metricsGrid}>
         {[
-          { label: "Lead totali", value: leads.length, sub: "nel foglio corrente" },
-          { label: "Score UX medio", value: avg, sub: "su 7 criteri", suffix: "/7" },
-          { label: "Email generate", value: emailGen, sub: `${leads.length - emailGen} skip` },
-          { label: "Calibrazione", value: calibPct, sub: `${fbOk}/${fbTot} feedback ok`, suffix: "%" },
+          { label: "Lead attivi", value: active.length, sub: `${scartati} scartati` },
+          { label: "Score medio", value: avg, sub: "su 7 criteri", suffix: "/7" },
+          { label: "Email generate", value: emailGen, sub: "pronte da inviare" },
+          { label: "Run totali", value: runs.length, sub: "sessioni" },
         ].map((m) => (
           <div key={m.label} style={css.metric}>
             <div style={css.mLabel}>{m.label}</div>
@@ -99,7 +89,7 @@ function Overview({ leads, runs, setTab }) {
         {runs.map((r, i) => (
           <div key={r.id} style={css.histRow(i === runs.length - 1)}>
             <div>
-              <div style={{ fontSize: 14, color: TX, fontWeight: 500 }}>{r.zona} — {r.settore}</div>
+              <div style={{ fontSize: 14, color: TX, fontWeight: 500 }}>{r.zona} - {r.settore}</div>
               <div style={{ fontSize: 11, color: MU, letterSpacing: "1px", marginTop: 3 }}>{r.date}</div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -109,67 +99,23 @@ function Overview({ leads, runs, setTab }) {
           </div>
         ))}
       </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        <div style={css.card}>
-          <div style={css.cardTitle}>Distribuzione score UX <div style={css.cardLine} /></div>
-          {[
-            { range: "5–7", count: scoreHi, pct: Math.round((scoreHi / tot) * 100), color: Y },
-            { range: "3–4", count: scoreMid, pct: Math.round((scoreMid / tot) * 100), color: "#EF9F27" },
-            { range: "1–2", count: scoreLo, pct: Math.round((scoreLo / tot) * 100), color: "#E24B4A" },
-          ].map((r) => (
-            <div key={r.range} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-              <span style={{ fontSize: 12, color: MU, width: 36 }}>{r.range}</span>
-              <div style={{ flex: 1, ...css.barWrap }}>
-                <div style={{ width: `${r.pct}%`, height: 4, background: r.color, borderRadius: 2 }} />
-              </div>
-              <span style={{ fontSize: 12, color: TX, width: 24, textAlign: "right" }}>{r.count}</span>
-            </div>
-          ))}
-        </div>
-        <div style={css.card}>
-          <div style={css.cardTitle}>Feedback calibrazione <div style={css.cardLine} /></div>
-          <div style={{ display: "flex", alignItems: "center", gap: 18, marginTop: 8 }}>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 28, fontWeight: 600, color: Y }}>{fbOk}</div>
-              <div style={{ fontSize: 10, letterSpacing: "1px", color: MU, textTransform: "uppercase" }}>approvati</div>
-            </div>
-            <div style={{ flex: 1, ...css.barWrap }}>
-              <div style={{ width: `${calibPct}%`, height: 4, background: Y, borderRadius: 2 }} />
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 28, fontWeight: 600, color: "#E24B4A" }}>{fbTot - fbOk}</div>
-              <div style={{ fontSize: 10, letterSpacing: "1px", color: MU, textTransform: "uppercase" }}>scartati</div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
 
 function Pipeline({ onRunComplete }) {
-  const [form, setForm] = useState({ zona: "Vicenza", settore: "dentisti", maxResults: 30, scoreMin: 4 });
+  const [form, setForm] = useState({ zona: "Vicenza", settore: "dentisti", maxResults: 30 });
   const [runState, setRunState] = useState(null);
   const [stepIdx, setStepIdx] = useState(-1);
   const [pct, setPct] = useState(0);
   const [lbl, setLbl] = useState("");
-  const esRef = useRef(null);
 
   const startRun = () => {
-    setRunState("running");
-    setStepIdx(0);
-    setPct(0);
-    setLbl("Avvio pipeline...");
-
-    const url = `${API}/api/run`;
-    const ctrl = new AbortController();
-
-    fetch(url, {
+    setRunState("running"); setStepIdx(0); setPct(0); setLbl("Avvio pipeline...");
+    fetch(`${API}/api/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
-      signal: ctrl.signal,
     }).then(async (res) => {
       const reader = res.body.getReader();
       const dec = new TextDecoder();
@@ -184,33 +130,17 @@ function Pipeline({ onRunComplete }) {
           if (line.startsWith("data: ")) {
             try {
               const d = JSON.parse(line.slice(6));
-              if (d.step === "done") {
-                setRunState("done");
-                setLbl(d.label);
-                setPct(100);
-                setStepIdx(4);
-                if (onRunComplete) onRunComplete();
-              } else if (d.step === "error") {
-                setRunState("error");
-                setLbl("Errore: " + d.label);
-              } else {
-                setStepIdx(d.step - 1);
-                setLbl(d.label);
-                setPct(d.step * 22);
-              }
+              if (d.step === "done") { setRunState("done"); setLbl(d.label); setPct(100); setStepIdx(4); onRunComplete && onRunComplete(); }
+              else if (d.step === "error") { setRunState("error"); setLbl("Errore: " + d.label); }
+              else { setStepIdx(d.step - 1); setLbl(d.label); setPct(d.step * 22); }
             } catch {}
           }
         }
       }
-    }).catch(() => {
-      setRunState("error");
-      setLbl("Errore di connessione al backend");
-    });
-
-    esRef.current = ctrl;
+    }).catch(() => { setRunState("error"); setLbl("Errore di connessione al backend"); });
   };
 
-  const getStepState = (i) => {
+  const stepState = (i) => {
     if (runState === "done") return "done";
     if (stepIdx < 0) return "idle";
     if (i < stepIdx) return "done";
@@ -223,25 +153,19 @@ function Pipeline({ onRunComplete }) {
       <div style={css.card}>
         <div style={css.cardTitle}>Configura run <div style={css.cardLine} /></div>
         <div style={css.formRow}>
-          <div><label style={css.fieldLabel}>Zona / Città</label><input style={css.input} value={form.zona} onChange={(e) => setForm({ ...form, zona: e.target.value })} /></div>
+          <div><label style={css.fieldLabel}>Zona / Citta</label><input style={css.input} value={form.zona} onChange={(e) => setForm({ ...form, zona: e.target.value })} /></div>
           <div><label style={css.fieldLabel}>Settore</label><input style={css.input} value={form.settore} onChange={(e) => setForm({ ...form, settore: e.target.value })} /></div>
         </div>
         <div style={css.formRow}>
           <div><label style={css.fieldLabel}>Max risultati Maps</label><input style={css.input} type="number" value={form.maxResults} onChange={(e) => setForm({ ...form, maxResults: parseInt(e.target.value) })} /></div>
-          <div>
-            <label style={css.fieldLabel}>Score max per email</label>
-            <select style={{ ...css.select, width: "100%" }} value={form.scoreMin} onChange={(e) => setForm({ ...form, scoreMin: parseInt(e.target.value) })}>
-              <option value={7}>tutti i lead</option>
-              <option value={4}>max 4/7 — consigliato</option>
-              <option value={3}>max 3/7 — solo i peggiori</option>
-            </select>
-          </div>
+          <div />
         </div>
-        <div style={{ display: "flex", gap: 12, marginTop: 6 }}>
-          <button style={{ ...css.btnY, padding: "11px 26px", fontSize: 12 }} onClick={startRun} disabled={runState === "running"}>
-            ▶ {runState === "running" ? "In esecuzione..." : "Lancia pipeline"}
-          </button>
+        <div style={{ fontSize: 11, color: MU, marginBottom: 14, lineHeight: 1.6 }}>
+          Il pipeline trova e analizza tutti i lead. Le email le generi tu manualmente dalla sezione Leads, lead per lead.
         </div>
+        <button style={{ ...css.btnY, padding: "11px 26px" }} onClick={startRun} disabled={runState === "running"}>
+          {runState === "running" ? "In esecuzione..." : "Lancia pipeline"}
+        </button>
       </div>
 
       {runState && (
@@ -256,16 +180,8 @@ function Pipeline({ onRunComplete }) {
             <span style={{ fontSize: 11, color: MU, letterSpacing: "1px" }}>{pct}%</span>
           </div>
           <div style={css.stepGrid}>
-            {[
-              { i: 0, icon: "📍", name: "Scrape Maps" },
-              { i: 1, icon: "🌐", name: "Crawl siti" },
-              { i: 2, icon: "🧠", name: "Score UX" },
-              { i: 3, icon: "✉", name: "Genera email" },
-            ].map((st) => (
-              <div key={st.i} style={css.step(getStepState(st.i))}>
-                <div style={{ fontSize: 22, marginBottom: 8 }}>{st.icon}</div>
-                {st.name}
-              </div>
+            {[{ i: 0, n: "Scrape Maps" }, { i: 1, n: "Crawl siti" }, { i: 2, n: "Score UX" }, { i: 3, n: "Salva lead" }].map((st) => (
+              <div key={st.i} style={css.step(stepState(st.i))}>{st.n}</div>
             ))}
           </div>
         </div>
@@ -274,149 +190,165 @@ function Pipeline({ onRunComplete }) {
   );
 }
 
-function Leads({ leads, setLeads, setTab }) {
-  const [hover, setHover] = useState(null);
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("tutti");
-  const [fbFilter, setFbFilter] = useState("tutti");
-
-  const setFb = async (lead, val) => {
-    const newFb = lead.fb === val ? null : val;
-    try {
-      await fetch(`${API}/api/feedback`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rowIndex: lead.rowIndex, feedback: newFb || "" }),
-      });
-      setLeads((prev) => prev.map((l) => l.rowIndex === lead.rowIndex ? { ...l, fb: newFb } : l));
-    } catch {}
-  };
-
-  const filtered = leads.filter((l) => {
-    const matchSearch = l.name.toLowerCase().includes(search.toLowerCase()) || l.city.toLowerCase().includes(search.toLowerCase());
-    const matchScore = filter === "tutti" || (filter === "alti" && l.score >= 5) || (filter === "medi" && l.score >= 3 && l.score < 5) || (filter === "bassi" && l.score < 3);
-    const matchFb = fbFilter === "tutti" || (fbFilter === "ok" && l.fb === "ok") || (fbFilter === "no" && l.fb === "no") || (fbFilter === "none" && !l.fb);
-    return matchSearch && matchScore && matchFb;
-  });
+function LeadCard({ lead, onFb, onGen, onScarta, generating }) {
+  const [open, setOpen] = useState(false);
+  const crit = parseCriteri(lead.criteri);
+  const issues = (lead.issues || "").split(" | ").filter(Boolean);
+  const forti = (lead.punti_forti || "").split(" | ").filter(Boolean);
 
   return (
-    <div>
-      <div style={{ display: "flex", gap: 10, marginBottom: 18, alignItems: "center" }}>
-        <input style={{ ...css.input, maxWidth: 260 }} placeholder="Cerca azienda, città..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        <select style={css.select} value={filter} onChange={(e) => setFilter(e.target.value)}>
-          <option value="tutti">Tutti gli score</option>
-          <option value="alti">Alti 5–7</option>
-          <option value="medi">Medi 3–4</option>
-          <option value="bassi">Bassi 1–2</option>
-        </select>
-        <select style={css.select} value={fbFilter} onChange={(e) => setFbFilter(e.target.value)}>
-          <option value="tutti">Tutti i feedback</option>
-          <option value="ok">Approvati</option>
-          <option value="no">Scartati</option>
-          <option value="none">Senza feedback</option>
-        </select>
-        <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 12, color: MU }}>{filtered.length} lead</span>
+    <div style={css.leadRow}>
+      <div style={css.leadHead} onClick={() => setOpen(!open)}>
+        <span style={css.scorePill(lead.score)}>{lead.score}</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 500, color: TX }}>{lead.name}</div>
+          <div style={{ fontSize: 11, color: MU, marginTop: 2 }}>{lead.city}{lead.telefono ? ` - ${lead.telefono}` : ""}</div>
+        </div>
+        {lead.email_body && <span style={css.badge(lead.email_stato || "da inviare")}>{lead.email_stato || "da inviare"}</span>}
+        {lead.fb === "scartato" && <span style={css.badge("skip")}>scartato</span>}
+        <span style={{ color: MU, fontSize: 16 }}>{open ? "\u25B4" : "\u25BE"}</span>
       </div>
 
-      {leads.length === 0 ? (
-        <div style={{ ...css.card, textAlign: "center", padding: 40 }}>
-          <div style={{ fontSize: 13, color: MU }}>Nessun lead ancora. Lancia il pipeline per iniziare.</div>
-          <button style={{ ...css.btnY, marginTop: 16 }} onClick={() => setTab("pipeline")}>▶ Vai al pipeline</button>
-        </div>
-      ) : (
-        <div style={{ ...css.card, padding: 0, overflow: "hidden" }}>
-          <table style={css.table}>
-            <thead>
-              <tr>
-                <th style={{ ...css.th, paddingLeft: 18, width: "28%" }}>Azienda</th>
-                <th style={{ ...css.th, width: "14%" }}>Città</th>
-                <th style={{ ...css.th, width: "10%", textAlign: "center" }}>Score</th>
-                <th style={{ ...css.th, width: "16%" }}>Stato email</th>
-                <th style={{ ...css.th, width: "18%", textAlign: "center" }}>Feedback</th>
-                <th style={{ ...css.th, width: "14%", textAlign: "right", paddingRight: 18 }}>Sito</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((l, i) => (
-                <tr key={i} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
-                  <td style={{ ...css.td(hover === i), paddingLeft: 18, fontWeight: 500 }}>{l.name}</td>
-                  <td style={{ ...css.td(hover === i), color: MU }}>{l.city}</td>
-                  <td style={{ ...css.td(hover === i), textAlign: "center" }}><span style={css.scorePill(l.score)}>{l.score}</span></td>
-                  <td style={css.td(hover === i)}><span style={css.badge(l.email_stato)}>{l.email_stato}</span></td>
-                  <td style={css.td(hover === i)}>
-                    <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                      <button style={css.fbBtn(l.fb === "ok", "ok")} onClick={() => setFb(l, "ok")}>✅</button>
-                      <button style={css.fbBtn(l.fb === "no", "no")} onClick={() => setFb(l, "no")}>❌</button>
-                    </div>
-                  </td>
-                  <td style={{ ...css.td(hover === i), textAlign: "right", paddingRight: 18 }}>
-                    {l.sito ? <a href={l.sito} target="_blank" rel="noreferrer" style={{ color: Y, fontSize: 11, letterSpacing: "1px" }}>Apri</a> : <span style={{ color: MU2 }}>—</span>}
-                  </td>
-                </tr>
+      {open && (
+        <div style={css.leadDetail}>
+          {crit && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 24px", margin: "14px 0" }}>
+              {Object.keys(CRIT_LABELS).map((k) => (
+                <div key={k} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 11, color: MU, width: 70 }}>{CRIT_LABELS[k]}</span>
+                  <div style={{ flex: 1, height: 5, background: BD, borderRadius: 3 }}><div style={css.critBar(crit[k] || 0)} /></div>
+                  <span style={{ fontSize: 11, color: TX, width: 24, textAlign: "right" }}>{crit[k] || 0}</span>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          )}
+
+          {issues.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", color: "#F09595", marginBottom: 6 }}>Punti deboli</div>
+              {issues.map((x, i) => <div key={i} style={{ fontSize: 12, color: TX, marginBottom: 3 }}>- {x}</div>)}
+            </div>
+          )}
+          {forti.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", color: "#97C459", marginBottom: 6 }}>Punti di forza</div>
+              {forti.map((x, i) => <div key={i} style={{ fontSize: 12, color: TX, marginBottom: 3 }}>- {x}</div>)}
+            </div>
+          )}
+
+          <div style={{ fontSize: 12, color: MU, marginBottom: 12 }}>
+            {lead.sito && <span>Sito: <a href={lead.sito} target="_blank" rel="noreferrer" style={{ color: Y }}>{lead.sito}</a></span>}
+            {lead.email_addr && <span style={{ marginLeft: 16 }}>Email: {lead.email_addr}</span>}
+          </div>
+
+          {lead.email_body && (
+            <div style={{ fontSize: 12, color: TX, lineHeight: 1.7, background: AN, border: `1px solid ${BD}`, borderRadius: 7, padding: "12px 14px", marginBottom: 12, whiteSpace: "pre-wrap" }}>{lead.email_body}</div>
+          )}
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {!lead.email_body ? (
+              <button style={css.btnGen} onClick={() => onGen(lead)} disabled={generating}>
+                {generating ? "Generazione..." : "Genera email"}
+              </button>
+            ) : (
+              <>
+                <button style={css.btnSm} onClick={() => navigator.clipboard.writeText(lead.email_body)}>Copia</button>
+                {lead.email_addr && <button style={css.btnSm} onClick={() => window.open(`mailto:${lead.email_addr}?body=${encodeURIComponent(lead.email_body)}`)}>Apri mail</button>}
+                <button style={css.btnSm} onClick={() => onGen(lead)} disabled={generating}>Rigenera</button>
+              </>
+            )}
+            <button style={css.btnSm} onClick={() => onFb(lead, "ok")}>{lead.fb === "ok" ? "Approvato" : "Approva"}</button>
+            <div style={{ flex: 1 }} />
+            <button style={css.btnDel} onClick={() => onScarta(lead)}>Cestina</button>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function Emails({ leads, setLeads }) {
-  const withEmail = leads.filter((l) => l.email_body);
-  const [filter, setFilter] = useState("tutte");
+function Leads({ leads, setLeads }) {
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("attivi");
+  const [genId, setGenId] = useState(null);
 
-  const markSent = async (lead) => {
-    try {
-      await fetch(`${API}/api/email-stato`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rowIndex: lead.rowIndex, stato: "inviata" }),
-      });
-      setLeads((prev) => prev.map((l) => l.rowIndex === lead.rowIndex ? { ...l, email_stato: "inviata" } : l));
-    } catch {}
+  const onFb = async (lead, val) => {
+    const newFb = lead.fb === val ? null : val;
+    await fetch(`${API}/api/feedback`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: lead.id, feedback: newFb || "" }) });
+    setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, fb: newFb } : l));
   };
 
-  const copy = (text) => navigator.clipboard.writeText(text);
+  const onScarta = async (lead) => {
+    await fetch(`${API}/api/scarta`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: lead.id }) });
+    setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, fb: "scartato" } : l));
+  };
 
-  const filtered = withEmail.filter((l) => filter === "tutte" || l.email_stato === filter);
+  const onGen = async (lead) => {
+    setGenId(lead.id);
+    try {
+      const r = await fetch(`${API}/api/genera-email`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: lead.id }) });
+      const d = await r.json();
+      if (d.email_body) setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, email_body: d.email_body, email_stato: "da inviare" } : l));
+    } catch {}
+    setGenId(null);
+  };
+
+  const filtered = leads.filter((l) => {
+    const ms = l.name.toLowerCase().includes(search.toLowerCase()) || l.city.toLowerCase().includes(search.toLowerCase());
+    const mf = filter === "tutti" || (filter === "attivi" && l.fb !== "scartato") || (filter === "scartati" && l.fb === "scartato") || (filter === "conemail" && l.email_body);
+    return ms && mf;
+  });
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 18, alignItems: "center" }}>
+        <input style={{ ...css.input, maxWidth: 260 }} placeholder="Cerca azienda, citta..." value={search} onChange={(e) => setSearch(e.target.value)} />
         <select style={css.select} value={filter} onChange={(e) => setFilter(e.target.value)}>
-          <option value="tutte">Tutte</option>
-          <option value="da inviare">Da inviare</option>
-          <option value="inviata">Inviate</option>
+          <option value="attivi">Attivi</option>
+          <option value="tutti">Tutti</option>
+          <option value="conemail">Con email generata</option>
+          <option value="scartati">Scartati</option>
         </select>
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 12, color: MU, alignSelf: "center" }}>{filtered.length} email</span>
+        <span style={{ fontSize: 12, color: MU }}>{filtered.length} lead</span>
       </div>
 
-      {filtered.length === 0 && (
+      {filtered.length === 0 ? (
         <div style={{ ...css.card, textAlign: "center", padding: 40 }}>
-          <div style={{ fontSize: 13, color: MU }}>Nessuna email generata ancora.</div>
+          <div style={{ fontSize: 13, color: MU }}>Nessun lead. Lancia il pipeline per iniziare.</div>
+        </div>
+      ) : (
+        filtered.map((l) => (
+          <LeadCard key={l.id} lead={l} onFb={onFb} onGen={onGen} onScarta={onScarta} generating={genId === l.id} />
+        ))
+      )}
+    </div>
+  );
+}
+
+function Emails({ leads }) {
+  const withEmail = leads.filter((l) => l.email_body);
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: MU, marginBottom: 18 }}>{withEmail.length} email generate</div>
+      {withEmail.length === 0 && (
+        <div style={{ ...css.card, textAlign: "center", padding: 40 }}>
+          <div style={{ fontSize: 13, color: MU }}>Nessuna email generata. Vai su Leads e generale dai singoli contatti.</div>
         </div>
       )}
-
-      {filtered.map((l, i) => (
-        <div key={i} style={css.emailCard}>
+      {withEmail.map((l) => (
+        <div key={l.id} style={css.emailCard}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12 }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 500, color: TX }}>{l.name}</div>
               <div style={{ fontSize: 11, color: MU, marginTop: 2 }}>{l.email_addr || "email non trovata"}</div>
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <span style={css.badge(l.email_stato)}>{l.email_stato}</span>
-              <span style={css.scorePill(l.score)}>{l.score}</span>
-            </div>
+            <span style={css.scorePill(l.score)}>{l.score}</span>
           </div>
           <div style={{ fontSize: 13, color: MU, lineHeight: 1.75, borderLeft: `2px solid ${BD2}`, paddingLeft: 14, marginBottom: 14, whiteSpace: "pre-wrap" }}>{l.email_body}</div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button style={css.btnSm} onClick={() => copy(l.email_body)}>⎘ Copia</button>
-            {l.email_addr && <button style={css.btnSm} onClick={() => window.open(`mailto:${l.email_addr}?body=${encodeURIComponent(l.email_body)}`)}>✉ Apri mail</button>}
-            {l.email_stato === "da inviare" && <button style={css.btnSend} onClick={() => markSent(l)}>✓ Segna inviata</button>}
+            <button style={css.btnSm} onClick={() => navigator.clipboard.writeText(l.email_body)}>Copia</button>
+            {l.email_addr && <button style={css.btnSm} onClick={() => window.open(`mailto:${l.email_addr}?body=${encodeURIComponent(l.email_body)}`)}>Apri mail</button>}
           </div>
         </div>
       ))}
@@ -424,42 +356,7 @@ function Emails({ leads, setLeads }) {
   );
 }
 
-function Settings() {
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-      <div style={css.card}>
-        <div style={css.cardTitle}>Variabili d'ambiente backend <div style={css.cardLine} /></div>
-        <div style={{ fontSize: 12, color: MU, lineHeight: 2 }}>
-          {["APIFY_TOKEN", "ANTHROPIC_API_KEY", "GOOGLE_SHEET_ID", "GOOGLE_SERVICE_ACCOUNT_JSON", "FRONTEND_URL"].map((k) => (
-            <div key={k} style={{ fontFamily: "monospace", fontSize: 11, color: TX, background: AN2, border: `1px solid ${BD}`, borderRadius: 5, padding: "6px 10px", marginBottom: 7 }}>{k}</div>
-          ))}
-        </div>
-        <div style={{ fontSize: 11, color: MU, marginTop: 8 }}>Configurate su Railway come env vars. Non editabili da UI per sicurezza.</div>
-      </div>
-      <div style={css.card}>
-        <div style={css.cardTitle}>Criteri UX — pesi calibrazione <div style={css.cardLine} /></div>
-        {CRITERIA.map((c) => (
-          <div key={c.name} style={css.criteriaRow}>
-            <span style={{ fontSize: 13, color: TX }}>{c.name}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 10, letterSpacing: "1px", color: MU }}>{c.peso}</span>
-              <div style={css.calibDot(c.calib)} />
-            </div>
-          </div>
-        ))}
-        <div style={{ display: "flex", gap: 16, marginTop: 12, fontSize: 10, color: MU, letterSpacing: "1px" }}>
-          {[["pos", "positivo"], ["neg", "negativo"], ["neu", "neutro"]].map(([t, l]) => (
-            <span key={t} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <div style={{ ...css.calibDot(t), width: 7, height: 7 }} />{l}
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const TABS = ["overview", "pipeline", "leads", "emails", "settings"];
+const TABS = ["overview", "pipeline", "leads", "emails"];
 
 export default function App() {
   const [tab, setTab] = useState("overview");
@@ -475,15 +372,13 @@ export default function App() {
       ]);
       setLeads(Array.isArray(lr) ? lr : []);
       setRuns(Array.isArray(rr) ? rr : []);
-    } catch {
-      setLeads([]);
-      setRuns([]);
-    } finally {
-      setLoading(false);
-    }
+    } catch { setLeads([]); setRuns([]); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  const activeCount = leads.filter((l) => l.fb !== "scartato").length;
 
   return (
     <div style={css.wrap}>
@@ -492,21 +387,18 @@ export default function App() {
           <div style={css.logoSeal}>SB</div>
           <div>
             <div style={css.logoText}>Lead Hunter</div>
-            <div style={css.logoSub}>Studio Brillo — pipeline</div>
+            <div style={css.logoSub}>Studio Brillo - pipeline</div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          {runs[0] && <span style={{ fontSize: 11, color: MU, letterSpacing: "1px" }}>ULTIMO RUN: {runs[0].date?.toUpperCase()}</span>}
-          <button style={css.btnY} onClick={() => setTab("pipeline")}>▶ Nuovo run</button>
-        </div>
+        <button style={css.btnY} onClick={() => setTab("pipeline")}>Nuovo run</button>
       </div>
 
       <div style={css.nav} role="tablist">
         {TABS.map((t) => (
           <button key={t} style={css.navBtn(tab === t)} onClick={() => setTab(t)} role="tab">
             {t}
-            {t === "leads" && leads.length > 0 && (
-              <span style={{ background: "#0d1a00", color: Y, border: "1px solid #2a4000", borderRadius: 4, padding: "1px 6px", fontSize: 10, marginLeft: 4 }}>{leads.length}</span>
+            {t === "leads" && activeCount > 0 && (
+              <span style={{ background: "#0d1a00", color: Y, border: "1px solid #2a4000", borderRadius: 4, padding: "1px 6px", fontSize: 10, marginLeft: 4 }}>{activeCount}</span>
             )}
           </button>
         ))}
@@ -519,9 +411,8 @@ export default function App() {
           <>
             {tab === "overview" && <Overview leads={leads} runs={runs} setTab={setTab} />}
             {tab === "pipeline" && <Pipeline onRunComplete={fetchData} />}
-            {tab === "leads" && <Leads leads={leads} setLeads={setLeads} setTab={setTab} />}
-            {tab === "emails" && <Emails leads={leads} setLeads={setLeads} />}
-            {tab === "settings" && <Settings />}
+            {tab === "leads" && <Leads leads={leads} setLeads={setLeads} />}
+            {tab === "emails" && <Emails leads={leads} />}
           </>
         )}
       </div>
