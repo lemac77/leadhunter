@@ -190,7 +190,7 @@ function Pipeline({ onRunComplete }) {
   );
 }
 
-function LeadCard({ lead, onFb, onGen, onScarta, generating }) {
+function LeadCard({ lead, onFb, onGen, onScarta, onDelete, generating }) {
   const [open, setOpen] = useState(false);
   const crit = parseCriteri(lead.criteri);
   const issues = (lead.issues || "").split(" | ").filter(Boolean);
@@ -259,7 +259,8 @@ function LeadCard({ lead, onFb, onGen, onScarta, generating }) {
             )}
             <button style={css.btnSm} onClick={() => onFb(lead, "ok")}>{lead.fb === "ok" ? "Approvato" : "Approva"}</button>
             <div style={{ flex: 1 }} />
-            <button style={css.btnDel} onClick={() => onScarta(lead)}>Cestina</button>
+            <button style={css.btnSm} onClick={() => onScarta(lead)}>Scarta</button>
+            <button style={css.btnDel} onClick={() => onDelete(lead)}>Elimina</button>
           </div>
         </div>
       )}
@@ -281,6 +282,12 @@ function Leads({ leads, setLeads }) {
   const onScarta = async (lead) => {
     await fetch(`${API}/api/scarta`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: lead.id }) });
     setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, fb: "scartato" } : l));
+  };
+
+  const onDelete = async (lead) => {
+    if (!window.confirm(`Cancellare definitivamente ${lead.name}?`)) return;
+    await fetch(`${API}/api/delete-lead`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: lead.id }) });
+    setLeads((prev) => prev.filter((l) => l.id !== lead.id));
   };
 
   const onGen = async (lead) => {
@@ -319,7 +326,7 @@ function Leads({ leads, setLeads }) {
         </div>
       ) : (
         filtered.map((l) => (
-          <LeadCard key={l.id} lead={l} onFb={onFb} onGen={onGen} onScarta={onScarta} generating={genId === l.id} />
+          <LeadCard key={l.id} lead={l} onFb={onFb} onGen={onGen} onScarta={onScarta} onDelete={onDelete} generating={genId === l.id} />
         ))
       )}
     </div>
@@ -378,6 +385,17 @@ export default function App() {
 
   useEffect(() => { fetchData(); }, []);
 
+  const [wiping, setWiping] = useState(false);
+  const wipeAll = async () => {
+    if (!window.confirm("Cancellare TUTTI i lead e run da Airtable? Operazione irreversibile.")) return;
+    setWiping(true);
+    try {
+      await fetch(`${API}/api/wipe-all`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      await fetchData();
+    } catch {}
+    setWiping(false);
+  };
+
   const activeCount = leads.filter((l) => l.fb !== "scartato").length;
 
   return (
@@ -390,7 +408,12 @@ export default function App() {
             <div style={css.logoSub}>Studio Brillo - pipeline</div>
           </div>
         </div>
-        <button style={css.btnY} onClick={() => setTab("pipeline")}>Nuovo run</button>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <button style={{ background: "transparent", border: "1px solid #4d0000", borderRadius: 6, padding: "9px 16px", fontSize: 11, letterSpacing: "1px", textTransform: "uppercase", color: "#F09595", cursor: "pointer" }} onClick={wipeAll} disabled={wiping}>
+            {wiping ? "Pulizia..." : "Pulisci tutto"}
+          </button>
+          <button style={css.btnY} onClick={() => setTab("pipeline")}>Nuovo run</button>
+        </div>
       </div>
 
       <div style={css.nav} role="tablist">
