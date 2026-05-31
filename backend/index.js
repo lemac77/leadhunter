@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import axios from "axios";
+import * as cheerio from "cheerio";
 
 dotenv.config();
 
@@ -16,12 +17,51 @@ const AT_URL = `https://api.airtable.com/v0/${AT_BASE}`;
 const APIFY = process.env.APIFY_TOKEN;
 const ANTHROPIC = process.env.ANTHROPIC_API_KEY;
 const GMAPS_ACTOR = "nwua9Gu5YrADL7ZDj";
-const CRAWLER_ACTOR = "apify~website-content-crawler";
 
 const at = axios.create({
   baseURL: AT_URL,
   headers: { Authorization: `Bearer ${AT_TOKEN}` },
 });
+
+async function fetchHomepage(url) {
+  try {
+    let target = url.startsWith("http") ? url : `https://${url}`;
+    const r = await axios.get(target, {
+      timeout: 15000,
+      maxRedirects: 5,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml",
+      },
+      validateStatus: (s) => s < 500,
+    });
+    const html = typeof r.data === "string" ? r.data : "";
+    if (!html) return { reachable: false, text: "", signals: {} };
+
+    const $ = cheerio.load(html);
+
+    const hasViewport = $('meta[name="viewport"]').length > 0;
+    const title = $("title").first().text().trim();
+    const metaDesc = $('meta[name="description"]').attr("content") || "";
+    const h1count = $("h1").length;
+    const imgCount = $("img").length;
+    const hasTel = /tel:|telefono|chiamaci/i.test(html);
+    const hasMail = /mailto:|@/.test(html);
+    const social = ["facebook.com", "instagram.com", "linkedin.com", "twitter.com", "tiktok.com"].filter((s) => html.includes(s));
+    const ctaWords = (html.match(/prenota|contatt|chiama|preventivo|richiedi|book|scopri/gi) || []).length;
+
+    $("script, style, noscript, svg").remove();
+    const bodyText = $("body").text().replace(/\s+/g, " ").trim().slice(0, 2500);
+
+    return {
+      reachable: true,
+      text: bodyText,
+      signals: { hasViewport, title, metaDesc, h1count, imgCount, hasTel, hasMail, social, ctaWords, htmlSize: html.length },
+    };
+  } catch (e) {
+    return { reachable: false, text: "", signals: {}, err: e.message };
+  }
+}
 
 const CRITERI = `Valuta il sito su questi 7 criteri (ognuno 1-10) e poi calcola un punteggio finale 1-7 dove 1 = sito pessimo / grande opportunita di vendita, 7 = sito gia ottimo / poca opportunita.
 
@@ -236,21 +276,19 @@ app.post("/api/run", async (req, res) => {
       return res.end();
     }
 
-    send({ step: 2, label: `Trovati ${places.length} posti. Crawling siti web...` });
+    send({ step: 2, label: `Trovati ${places.length} posti. Analisi siti web...` });
 
     const leadsWithSites = await Promise.all(
       places.map(async (p) => {
-        let sito = p.website || "";
+        const sito = p.website || "";
         let content = "";
+        let signals = {};
+        let reachable = false;
         if (sito) {
-          try {
-            const cr = await axios.post(
-              `https://api.apify.com/v2/acts/${CRAWLER_ACTOR}/run-sync-get-dataset-items?token=${APIFY}`,
-              { startUrls: [{ url: sito }], maxCrawlPages: 1 },
-              { headers: { "Content-Type": "application/json" }, timeout: 120000 }
-            );
-            content = cr.data[0]?.text?.slice(0, 3000) || "";
-          } catch {}
+          const hp = await fetchHomepage(sito);
+          content = hp.text;
+          signals = hp.signals;
+          reachable = hp.reachable;
         }
         return {
           name: p.title || p.name || "",
@@ -259,6 +297,8 @@ app.post("/api/run", async (req, res) => {
           telefono: p.phone || "",
           sito,
           content,
+          signals,
+          reachable,
         };
       })
     );
@@ -274,8 +314,21 @@ app.post("/api/run", async (req, res) => {
 
     const scored = await Promise.all(
       leadsWithSites.map(async (lead) => {
-        if (!lead.sito || !lead.content) return { ...lead, score: 0, issues: ["sito assente o non raggiungibile"], punti_forti: [], criteri: {} };
+        if (!lead.sito) return { ...lead, score: 1, issues: ["nessun sito web presente"], punti_forti: [], criteri: {} };
+        if (!lead.reachable || !lead.content) return { ...lead, score: 2, issues: ["sito non raggiungibile o vuoto"], punti_forti: [], criteri: {} };
         try {
+          const s = lead.signals || {};
+          const segnali = `Segnali tecnici rilevati dalla homepage:
+- Meta viewport (mobile-ready): ${s.hasViewport ? "si" : "NO"}
+- Title presente: ${s.title ? `si ("${s.title.slice(0, 60)}")` : "NO"}
+- Meta description: ${s.metaDesc ? "si" : "NO"}
+- Numero H1: ${s.h1count}
+- Telefono presente: ${s.hasTel ? "si" : "NO"}
+- Email presente: ${s.hasMail ? "si" : "NO"}
+- Social trovati: ${(s.social && s.social.length) ? s.social.join(", ") : "nessuno"}
+- Parole CTA (prenota/contatta/...): ${s.ctaWords}
+- Peso pagina HTML: ${s.htmlSize} caratteri`;
+
           const resp = await axios.post(
             "https://api.anthropic.com/v1/messages",
             {
@@ -285,11 +338,12 @@ app.post("/api/run", async (req, res) => {
                 role: "user",
                 content: `${CRITERI}${calibNote}
 
-Sito da analizzare: ${lead.sito} (${lead.name})
-Contenuto estratto:
+${segnali}
+
+Testo della homepage:
 ${lead.content}
 
-Rispondi SOLO in JSON valido, niente altro:
+Usa i segnali tecnici sopra come base oggettiva per i criteri (es. se manca viewport il mobile e basso, se mancano social il criterio social e basso). Rispondi SOLO in JSON valido:
 {"criteri": {"mobile": <1-10>, "velocita": <1-10>, "cta": <1-10>, "seo": <1-10>, "design": <1-10>, "social": <1-10>, "contatti": <1-10>}, "score": <1-7>, "issues": ["problema concreto 1", "problema concreto 2"], "punti_forti": ["punto 1"]}`,
               }],
             },
