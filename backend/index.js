@@ -47,10 +47,14 @@ app.get("/api/leads", async (req, res) => {
       city: rec.fields["City"] || "",
       score: parseInt(rec.fields["Score"]) || 0,
       email_addr: rec.fields["Email"] || "",
+      telefono: rec.fields["Telefono"] || "",
       sito: rec.fields["Sito"] || "",
-      email_stato: rec.fields["Email stato"] || "da inviare",
+      email_stato: rec.fields["Email stato"] || "",
       email_body: rec.fields["Email body"] || "",
       fb: rec.fields["Feedback"] || null,
+      criteri: rec.fields["Criteri"] || "",
+      issues: rec.fields["Issues"] || "",
+      punti_forti: rec.fields["Punti forti"] || "",
       zona: rec.fields["Zona"] || "",
       settore: rec.fields["Settore"] || "",
     }));
@@ -87,6 +91,16 @@ app.post("/api/feedback", async (req, res) => {
   }
 });
 
+app.post("/api/scarta", async (req, res) => {
+  try {
+    const { id } = req.body;
+    await at.patch(`/Leads/${id}`, { fields: { Feedback: "scartato" } });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post("/api/email-stato", async (req, res) => {
   try {
     const { id, stato } = req.body;
@@ -97,17 +111,55 @@ app.post("/api/email-stato", async (req, res) => {
   }
 });
 
+app.post("/api/genera-email", async (req, res) => {
+  try {
+    const { id } = req.body;
+    const rec = await at.get(`/Leads/${id}`);
+    const f = rec.data.fields;
+    const resp = await axios.post(
+      "https://api.anthropic.com/v1/messages",
+      {
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 500,
+        messages: [{
+          role: "user",
+          content: `Scrivi una email a freddo per Nicolò di Studio Brillo (studio creativo digitale di Vicenza) da inviare a ${f["Name"]}, attivita di tipo "${f["Settore"]}" a ${f["City"]}.
+
+Sito: ${f["Sito"]}
+Punti deboli rilevati: ${f["Issues"] || "n/d"}
+Punti di forza: ${f["Punti forti"] || "n/d"}
+
+REGOLE FERREE sul tono:
+- NON implicare mai che abbiano un problema o che il loro sito faccia schifo
+- Parti da una curiosita genuina o un complimento reale e specifico su di loro
+- Tono umano, diretto, da persona vera, non da venditore
+- Niente em dash, niente trattini lunghi
+- Max 5-6 righe
+- Chiudi con una domanda leggera o un aggancio soft, non con una proposta aggressiva
+
+Scrivi SOLO il corpo della mail, niente oggetto, niente firma.`,
+        }],
+      },
+      { headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01" } }
+    );
+    const body = resp.data.content[0].text.trim();
+    await at.patch(`/Leads/${id}`, { fields: { "Email body": body, "Email stato": "da inviare" } });
+    res.json({ ok: true, email_body: body });
+  } catch (e) {
+    const detail = e.response?.data ? JSON.stringify(e.response.data) : e.message;
+    res.status(500).json({ error: detail });
+  }
+});
+
 async function getCalibration() {
   try {
     const r = await at.get("/Leads?maxRecords=200&filterByFormula=NOT({Feedback}=\"\")");
-    const ok = [];
-    const no = [];
+    const ok = [], no = [];
     r.data.records.forEach((rec) => {
       const fb = rec.fields["Feedback"];
       const score = rec.fields["Score"];
-      const settore = rec.fields["Settore"];
-      if (fb === "ok") ok.push({ score, settore });
-      else if (fb === "no") no.push({ score, settore });
+      if (fb === "ok") ok.push(score);
+      else if (fb === "no" || fb === "scartato") no.push(score);
     });
     return { ok, no };
   } catch {
@@ -116,7 +168,7 @@ async function getCalibration() {
 }
 
 app.post("/api/run", async (req, res) => {
-  const { zona, settore, maxResults, scoreMin } = req.body;
+  const { zona, settore, maxResults } = req.body;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -180,12 +232,13 @@ app.post("/api/run", async (req, res) => {
     const calib = await getCalibration();
     let calibNote = "";
     if (calib.ok.length || calib.no.length) {
-      calibNote = `\n\nCALIBRAZIONE da feedback passati: lead approvati avevano score medio ${calib.ok.length ? (calib.ok.reduce((s, x) => s + (x.score || 0), 0) / calib.ok.length).toFixed(1) : "n/d"}, lead scartati score medio ${calib.no.length ? (calib.no.reduce((s, x) => s + (x.score || 0), 0) / calib.no.length).toFixed(1) : "n/d"}. Tieni conto di questo pattern.`;
+      const avg = (arr) => arr.length ? (arr.reduce((s, x) => s + (x || 0), 0) / arr.length).toFixed(1) : "n/d";
+      calibNote = `\n\nCALIBRAZIONE da feedback passati: lead buoni avevano score medio ${avg(calib.ok)}, lead scartati score medio ${avg(calib.no)}. Tieni conto di questo pattern.`;
     }
 
     const scored = await Promise.all(
       leadsWithSites.map(async (lead) => {
-        if (!lead.sito || !lead.content) return { ...lead, score: 0, issues: ["sito assente o non raggiungibile"] };
+        if (!lead.sito || !lead.content) return { ...lead, score: 0, issues: ["sito assente o non raggiungibile"], punti_forti: [], criteri: {} };
         try {
           const resp = await axios.post(
             "https://api.anthropic.com/v1/messages",
@@ -207,76 +260,49 @@ Rispondi SOLO in JSON valido, niente altro:
             { headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01" } }
           );
           const parsed = JSON.parse(resp.data.content[0].text.match(/\{[\s\S]*\}/)[0]);
-          return { ...lead, score: parsed.score, issues: parsed.issues || [], punti_forti: parsed.punti_forti || [], criteri: parsed.criteri };
+          return { ...lead, score: parsed.score, issues: parsed.issues || [], punti_forti: parsed.punti_forti || [], criteri: parsed.criteri || {} };
         } catch (err) {
           console.error("SCORING ERROR:", lead.name, err.message);
-          return { ...lead, score: 0, issues: ["errore analisi"] };
+          return { ...lead, score: 0, issues: ["errore analisi"], punti_forti: [], criteri: {} };
         }
       })
     );
 
-    const soglia = scoreMin || 4;
-    const filtered = scored.filter((l) => l.score > 0 && l.score <= soglia);
-    send({ step: 4, label: `${filtered.length} lead sotto soglia ${soglia}/7. Generazione email...` });
-
-    const withEmails = await Promise.all(
-      filtered.map(async (lead) => {
-        try {
-          const resp = await axios.post(
-            "https://api.anthropic.com/v1/messages",
-            {
-              model: "claude-haiku-4-5-20251001",
-              max_tokens: 500,
-              messages: [{
-                role: "user",
-                content: `Scrivi una email a freddo per Nicolò di Studio Brillo (studio creativo digitale di Vicenza) da inviare a ${lead.name}, attivita di tipo "${settore}" a ${lead.city}.
-
-Sito: ${lead.sito}
-Punti deboli rilevati: ${(lead.issues || []).join(", ")}
-Punti di forza: ${(lead.punti_forti || []).join(", ")}
-
-REGOLE FERREE sul tono:
-- NON implicare mai che abbiano un problema o che il loro sito faccia schifo
-- Parti da una curiosita genuina o un complimento reale e specifico su di loro
-- Tono umano, diretto, da persona vera, non da venditore
-- Niente em dash, niente trattini lunghi
-- Max 5-6 righe
-- Chiudi con una domanda leggera o un aggancio soft, non con una proposta aggressiva
-
-Scrivi SOLO il corpo della mail, niente oggetto, niente firma.`,
-              }],
-            },
-            { headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01" } }
-          );
-          return { ...lead, email_body: resp.data.content[0].text.trim() };
-        } catch {
-          return { ...lead, email_body: "" };
-        }
-      })
-    );
+    send({ step: 4, label: `Salvataggio ${scored.length} lead su Airtable...` });
 
     const runDate = new Date().toLocaleDateString("it-IT");
     await at.post("/Runs", {
-      fields: { Data: runDate, Zona: zona, Settore: settore, Lead: Math.round(withEmails.length), Email: Math.round(withEmails.filter((l) => l.email_body).length) },
+      fields: { Data: runDate, Zona: zona, Settore: settore, Lead: Math.round(scored.length), Email: 0 },
     });
 
-    if (withEmails.length > 0) {
+    if (scored.length > 0) {
       const chunks = [];
-      for (let i = 0; i < withEmails.length; i += 10) chunks.push(withEmails.slice(i, i + 10));
+      for (let i = 0; i < scored.length; i += 10) chunks.push(scored.slice(i, i + 10));
       for (const chunk of chunks) {
         await at.post("/Leads", {
           records: chunk.map((l) => ({
             fields: {
-              Name: l.name, City: l.city, Score: Math.round(Number(l.score)) || 0, Email: l.email_addr,
-              Sito: l.sito, "Email stato": "da inviare", "Email body": l.email_body,
-              Feedback: "", Zona: zona, Settore: settore,
+              Name: l.name,
+              City: l.city,
+              Score: Math.round(Number(l.score)) || 0,
+              Email: l.email_addr,
+              Telefono: l.telefono || "",
+              Sito: l.sito,
+              "Email stato": "",
+              "Email body": "",
+              Feedback: "",
+              Criteri: typeof l.criteri === "object" ? JSON.stringify(l.criteri) : String(l.criteri || ""),
+              Issues: (l.issues || []).join(" | "),
+              "Punti forti": (l.punti_forti || []).join(" | "),
+              Zona: zona,
+              Settore: settore,
             },
           })),
         });
       }
     }
 
-    send({ step: "done", label: `Completato — ${withEmails.length} lead salvati, ${withEmails.filter((l) => l.email_body).length} email generate` });
+    send({ step: "done", label: `Completato — ${scored.length} lead analizzati e salvati` });
     res.end();
   } catch (e) {
     const errDetail = e.response?.data ? JSON.stringify(e.response.data) : e.message;
