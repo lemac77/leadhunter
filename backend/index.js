@@ -257,7 +257,7 @@ Scrivi SOLO il corpo della mail, niente oggetto, niente firma.`,
 
     const runDate = new Date().toLocaleDateString("it-IT");
     await at.post("/Runs", {
-      fields: { Data: runDate, Zona: zona, Settore: settore, Lead: withEmails.length, Email: withEmails.filter((l) => l.email_body).length },
+      fields: { Data: runDate, Zona: zona, Settore: settore, Lead: Math.round(withEmails.length), Email: Math.round(withEmails.filter((l) => l.email_body).length) },
     });
 
     if (withEmails.length > 0) {
@@ -267,7 +267,7 @@ Scrivi SOLO il corpo della mail, niente oggetto, niente firma.`,
         await at.post("/Leads", {
           records: chunk.map((l) => ({
             fields: {
-              Name: l.name, City: l.city, Score: l.score, Email: l.email_addr,
+              Name: l.name, City: l.city, Score: Math.round(Number(l.score)) || 0, Email: l.email_addr,
               Sito: l.sito, "Email stato": "da inviare", "Email body": l.email_body,
               Feedback: "", Zona: zona, Settore: settore,
             },
