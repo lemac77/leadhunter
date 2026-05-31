@@ -95,10 +95,11 @@ app.post("/api/run", async (req, res) => {
     const apifyRun = await axios.post(
       `https://api.apify.com/v2/acts/nwua9Gu5YrADL7ZDj/runs`,
       {
-        searchStringsArray: [`${settore} ${zona}`],
+        searchStringsArray: [settore],
+        locationQuery: `${zona}, Italia`,
         maxCrawledPlacesPerSearch: maxResults || 30,
         language: "it",
-        countryCode: "IT",
+        scrapeContacts: true,
       },
       {
         headers: { Authorization: `Bearer ${process.env.APIFY_TOKEN}` },
@@ -108,7 +109,7 @@ app.post("/api/run", async (req, res) => {
 
     const runId = apifyRun.data.data.id;
     const resultsResp = await axios.get(
-      `https://api.apify.com/v2/acts/nwua9Gu5YrADL7ZDj/runs/${runId}/dataset/items`,
+      `https://api.apify.com/v2/dataset/${apifyRun.data.data.defaultDatasetId}/items`,
       { headers: { Authorization: `Bearer ${process.env.APIFY_TOKEN}` } }
     );
     const places = resultsResp.data.slice(0, maxResults || 30);
@@ -126,7 +127,7 @@ app.post("/api/run", async (req, res) => {
               { headers: { Authorization: `Bearer ${process.env.APIFY_TOKEN}` }, params: { waitForFinish: 60 } }
             );
             const cRes = await axios.get(
-              `https://api.apify.com/v2/acts/apify~website-content-crawler/runs/${crawl.data.data.id}/dataset/items`,
+              `https://api.apify.com/v2/dataset/${crawl.data.data.defaultDatasetId}/items`,
               { headers: { Authorization: `Bearer ${process.env.APIFY_TOKEN}` } }
             );
             content = cRes.data[0]?.text?.slice(0, 2000) || "";
