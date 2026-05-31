@@ -93,10 +93,10 @@ app.post("/api/run", async (req, res) => {
     send({ step: 1, label: "Scraping Google Maps con Apify..." });
 
     const apifyRun = await axios.post(
-      `https://api.apify.com/v2/acts/compass~crawler-google-places/runs`,
+      `https://api.apify.com/v2/acts/nwua9Gu5YrADL7ZDj/runs`,
       {
         searchStringsArray: [`${settore} ${zona}`],
-        maxCrawledPlaces: maxResults || 30,
+        maxCrawledPlacesPerSearch: maxResults || 30,
         language: "it",
         countryCode: "IT",
       },
@@ -108,7 +108,7 @@ app.post("/api/run", async (req, res) => {
 
     const runId = apifyRun.data.data.id;
     const resultsResp = await axios.get(
-      `https://api.apify.com/v2/acts/compass~crawler-google-places/runs/${runId}/dataset/items`,
+      `https://api.apify.com/v2/acts/nwua9Gu5YrADL7ZDj/runs/${runId}/dataset/items`,
       { headers: { Authorization: `Bearer ${process.env.APIFY_TOKEN}` } }
     );
     const places = resultsResp.data.slice(0, maxResults || 30);
