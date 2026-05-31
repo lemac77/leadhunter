@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const API = "https://leadhunter-qpvs.onrender.com";
 
 const Y = "#DFFF00";
 const BK = "#000000";
