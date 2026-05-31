@@ -101,6 +101,42 @@ app.post("/api/scarta", async (req, res) => {
   }
 });
 
+app.post("/api/delete-lead", async (req, res) => {
+  try {
+    const { id } = req.body;
+    await at.delete(`/Leads/${id}`);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+async function wipeTable(table) {
+  let deleted = 0;
+  while (true) {
+    const r = await at.get(`/${table}?maxRecords=100`);
+    const ids = r.data.records.map((rec) => rec.id);
+    if (ids.length === 0) break;
+    for (let i = 0; i < ids.length; i += 10) {
+      const chunk = ids.slice(i, i + 10);
+      const params = chunk.map((id) => `records[]=${id}`).join("&");
+      await at.delete(`/${table}?${params}`);
+      deleted += chunk.length;
+    }
+  }
+  return deleted;
+}
+
+app.post("/api/wipe-all", async (req, res) => {
+  try {
+    const leadsDeleted = await wipeTable("Leads");
+    const runsDeleted = await wipeTable("Runs");
+    res.json({ ok: true, leadsDeleted, runsDeleted });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post("/api/email-stato", async (req, res) => {
   try {
     const { id, stato } = req.body;
