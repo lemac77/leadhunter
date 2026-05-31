@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import axios from "axios";
-import { google } from "googleapis";
 
 dotenv.config();
 
@@ -11,62 +10,51 @@ app.use(cors({ origin: process.env.FRONTEND_URL || "*" }));
 app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
+const AT_TOKEN = process.env.AIRTABLE_TOKEN;
+const AT_BASE = process.env.AIRTABLE_BASE_ID;
+const AT_URL = `https://api.airtable.com/v0/${AT_BASE}`;
 
-const getSheets = async () => {
-  const auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON),
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-  });
-  return google.sheets({ version: "v4", auth });
-};
-
-const SHEET_ID = process.env.GOOGLE_SHEET_ID;
-const SHEET_NAME = "Leads";
+const at = axios.create({
+  baseURL: AT_URL,
+  headers: { Authorization: `Bearer ${AT_TOKEN}` },
+});
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
-app.get("/api/runs", async (req, res) => {
+app.get("/api/leads", async (req, res) => {
   try {
-    const sheets = await getSheets();
-    const r = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
-      range: "Runs!A2:F100",
-    });
-    const rows = (r.data.values || []).map((row) => ({
-      id: row[0],
-      date: row[1],
-      zona: row[2],
-      settore: row[3],
-      leads: parseInt(row[4]) || 0,
-      email: parseInt(row[5]) || 0,
+    const r = await at.get("/Leads?maxRecords=500&sort[0][field]=Score&sort[0][direction]=asc");
+    const leads = r.data.records.map((rec) => ({
+      id: rec.id,
+      name: rec.fields["Name"] || "",
+      city: rec.fields["City"] || "",
+      score: parseInt(rec.fields["Score"]) || 0,
+      email_addr: rec.fields["Email"] || "",
+      sito: rec.fields["Sito"] || "",
+      email_stato: rec.fields["Email stato"] || "da inviare",
+      email_body: rec.fields["Email body"] || "",
+      fb: rec.fields["Feedback"] || null,
+      zona: rec.fields["Zona"] || "",
+      settore: rec.fields["Settore"] || "",
     }));
-    res.json(rows);
+    res.json(leads);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-app.get("/api/leads", async (req, res) => {
+app.get("/api/runs", async (req, res) => {
   try {
-    const sheets = await getSheets();
-    const r = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
-      range: `${SHEET_NAME}!A2:J500`,
-    });
-    const rows = (r.data.values || []).map((row, i) => ({
-      rowIndex: i + 2,
-      name: row[0] || "",
-      city: row[1] || "",
-      score: parseInt(row[2]) || 0,
-      email_addr: row[3] || "",
-      sito: row[4] || "",
-      email_stato: row[5] || "da inviare",
-      email_body: row[6] || "",
-      fb: row[7] || null,
-      zona: row[8] || "",
-      settore: row[9] || "",
+    const r = await at.get("/Runs?maxRecords=20&sort[0][field]=Data&sort[0][direction]=desc");
+    const runs = r.data.records.map((rec) => ({
+      id: rec.id,
+      date: rec.fields["Data"] || "",
+      zona: rec.fields["Zona"] || "",
+      settore: rec.fields["Settore"] || "",
+      leads: parseInt(rec.fields["Lead"]) || 0,
+      email: parseInt(rec.fields["Email"]) || 0,
     }));
-    res.json(rows);
+    res.json(runs);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -74,14 +62,8 @@ app.get("/api/leads", async (req, res) => {
 
 app.post("/api/feedback", async (req, res) => {
   try {
-    const { rowIndex, feedback } = req.body;
-    const sheets = await getSheets();
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID,
-      range: `${SHEET_NAME}!H${rowIndex}`,
-      valueInputOption: "RAW",
-      requestBody: { values: [[feedback]] },
-    });
+    const { id, feedback } = req.body;
+    await at.patch(`/Leads/${id}`, { fields: { Feedback: feedback } });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -90,14 +72,8 @@ app.post("/api/feedback", async (req, res) => {
 
 app.post("/api/email-stato", async (req, res) => {
   try {
-    const { rowIndex, stato } = req.body;
-    const sheets = await getSheets();
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID,
-      range: `${SHEET_NAME}!F${rowIndex}`,
-      valueInputOption: "RAW",
-      requestBody: { values: [[stato]] },
-    });
+    const { id, stato } = req.body;
+    await at.patch(`/Leads/${id}`, { fields: { "Email stato": stato } });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -131,13 +107,11 @@ app.post("/api/run", async (req, res) => {
     );
 
     const runId = apifyRun.data.data.id;
-
     const resultsResp = await axios.get(
       `https://api.apify.com/v2/acts/compass~crawler-google-places/runs/${runId}/dataset/items`,
       { headers: { Authorization: `Bearer ${process.env.APIFY_TOKEN}` } }
     );
     const places = resultsResp.data.slice(0, maxResults || 30);
-
     send({ step: 2, label: `Trovati ${places.length} posti. Crawling siti web...` });
 
     const leadsWithSites = await Promise.all(
@@ -149,14 +123,10 @@ app.post("/api/run", async (req, res) => {
             const crawl = await axios.post(
               "https://api.apify.com/v2/acts/apify~website-content-crawler/runs",
               { startUrls: [{ url: sito }], maxCrawlPages: 1 },
-              {
-                headers: { Authorization: `Bearer ${process.env.APIFY_TOKEN}` },
-                params: { waitForFinish: 60 },
-              }
+              { headers: { Authorization: `Bearer ${process.env.APIFY_TOKEN}` }, params: { waitForFinish: 60 } }
             );
-            const cId = crawl.data.data.id;
             const cRes = await axios.get(
-              `https://api.apify.com/v2/acts/apify~website-content-crawler/runs/${cId}/dataset/items`,
+              `https://api.apify.com/v2/acts/apify~website-content-crawler/runs/${crawl.data.data.id}/dataset/items`,
               { headers: { Authorization: `Bearer ${process.env.APIFY_TOKEN}` } }
             );
             content = cRes.data[0]?.text?.slice(0, 2000) || "";
@@ -168,47 +138,29 @@ app.post("/api/run", async (req, res) => {
 
     send({ step: 3, label: "Analisi UX con Claude..." });
 
-    const calibRaw = process.env.CALIBRATION_WEIGHTS || "{}";
-    const calibWeights = JSON.parse(calibRaw);
-
     const scored = await Promise.all(
       leadsWithSites.map(async (lead) => {
-        if (!lead.sito) return { ...lead, score: 0, email_body: "" };
+        if (!lead.sito) return { ...lead, score: 0, issues: [] };
         try {
-          const prompt = `Analizza questo sito web di ${lead.name} (${lead.sito}) e valuta su 7 criteri. Pesi calibrazione: ${JSON.stringify(calibWeights)}.
-
-Contenuto sito:
-${lead.content}
-
-Rispondi SOLO in JSON:
-{"score": <1-7>, "issues": ["problema1", "problema2"], "positivi": ["punto1"]}`;
-
           const resp = await axios.post(
             "https://api.anthropic.com/v1/messages",
             {
               model: "claude-haiku-4-5-20251001",
               max_tokens: 300,
-              messages: [{ role: "user", content: prompt }],
+              messages: [{ role: "user", content: `Analizza il sito ${lead.sito} di ${lead.name}. Contenuto: ${lead.content}. Rispondi SOLO in JSON: {"score": <1-7>, "issues": ["problema1"]}` }],
             },
-            {
-              headers: {
-                "x-api-key": process.env.ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-              },
-            }
+            { headers: { "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" } }
           );
-          const txt = resp.data.content[0].text;
-          const parsed = JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
-          return { ...lead, score: parsed.score, issues: parsed.issues, email_body: "" };
+          const parsed = JSON.parse(resp.data.content[0].text.match(/\{[\s\S]*\}/)[0]);
+          return { ...lead, score: parsed.score, issues: parsed.issues };
         } catch {
-          return { ...lead, score: 0, email_body: "" };
+          return { ...lead, score: 0, issues: [] };
         }
       })
     );
 
     const filtered = scored.filter((l) => l.score > 0 && l.score <= (scoreMin || 4));
-
-    send({ step: 4, label: `Generazione ${filtered.length} email personalizzate...` });
+    send({ step: 4, label: `Generazione ${filtered.length} email...` });
 
     const withEmails = await Promise.all(
       filtered.map(async (lead) => {
@@ -218,58 +170,39 @@ Rispondi SOLO in JSON:
             {
               model: "claude-haiku-4-5-20251001",
               max_tokens: 400,
-              messages: [
-                {
-                  role: "user",
-                  content: `Scrivi una email fredda breve e personale da Nicolò di Studio Brillo a ${lead.name} (${lead.sito}). 
-Problemi rilevati: ${(lead.issues || []).join(", ")}.
-Tono: curioso e genuino, non implica mai che abbiano un problema, parte da un complimento reale. 
-Max 5 righe. Solo il corpo dell'email, niente oggetto.`,
-                },
-              ],
+              messages: [{ role: "user", content: `Scrivi una email fredda breve da Nicolò di Studio Brillo a ${lead.name} (${lead.sito}). Problemi: ${lead.issues?.join(", ")}. Tono curioso e genuino, parti da un complimento. Max 5 righe. Solo il corpo.` }],
             },
-            {
-              headers: {
-                "x-api-key": process.env.ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-              },
-            }
+            { headers: { "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" } }
           );
           return { ...lead, email_body: resp.data.content[0].text };
         } catch {
-          return lead;
+          return { ...lead, email_body: "" };
         }
       })
     );
 
-    const sheets = await getSheets();
     const runDate = new Date().toLocaleDateString("it-IT");
-    const runId2 = Date.now().toString();
-
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SHEET_ID,
-      range: "Runs!A:F",
-      valueInputOption: "RAW",
-      requestBody: {
-        values: [[runId2, runDate, zona, settore, withEmails.length, withEmails.filter((l) => l.email_body).length]],
-      },
+    await at.post("/Runs", {
+      fields: { Data: runDate, Zona: zona, Settore: settore, Lead: withEmails.length, Email: withEmails.filter((l) => l.email_body).length },
     });
 
-    const rows = withEmails.map((l) => [
-      l.name, l.city, l.score, l.email_addr, l.sito,
-      "da inviare", l.email_body, "", zona, settore,
-    ]);
-
-    if (rows.length > 0) {
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: SHEET_ID,
-        range: `${SHEET_NAME}!A:J`,
-        valueInputOption: "RAW",
-        requestBody: { values: rows },
-      });
+    if (withEmails.length > 0) {
+      const chunks = [];
+      for (let i = 0; i < withEmails.length; i += 10) chunks.push(withEmails.slice(i, i + 10));
+      for (const chunk of chunks) {
+        await at.post("/Leads", {
+          records: chunk.map((l) => ({
+            fields: {
+              Name: l.name, City: l.city, Score: l.score, Email: l.email_addr,
+              Sito: l.sito, "Email stato": "da inviare", "Email body": l.email_body,
+              Feedback: "", Zona: zona, Settore: settore,
+            },
+          })),
+        });
+      }
     }
 
-    send({ step: "done", label: `Completato — ${withEmails.length} lead, ${withEmails.filter((l) => l.email_body).length} email`, leads: withEmails });
+    send({ step: "done", label: `Completato — ${withEmails.length} lead, ${withEmails.filter((l) => l.email_body).length} email` });
     res.end();
   } catch (e) {
     send({ step: "error", label: e.message });
