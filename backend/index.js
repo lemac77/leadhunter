@@ -23,44 +23,73 @@ const at = axios.create({
   headers: { Authorization: `Bearer ${AT_TOKEN}` },
 });
 
+const SOCIAL_HOSTS = ["facebook.com", "fb.com", "instagram.com", "linkedin.com", "twitter.com", "x.com", "tiktok.com", "youtube.com", "wa.me", "business.site"];
+
+function isSocialOrInvalid(url) {
+  if (!url) return true;
+  const u = url.toLowerCase();
+  return SOCIAL_HOSTS.some((h) => u.includes(h));
+}
+
 async function fetchHomepage(url) {
-  try {
-    let target = url.startsWith("http") ? url : `https://${url}`;
-    const r = await axios.get(target, {
-      timeout: 15000,
-      maxRedirects: 5,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml",
-      },
-      validateStatus: (s) => s < 500,
-    });
-    const html = typeof r.data === "string" ? r.data : "";
-    if (!html) return { reachable: false, text: "", signals: {} };
+  const target = url.startsWith("http") ? url : `https://${url}`;
+  const headers = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "it-IT,it;q=0.9,en;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Ch-Ua": '"Chromium";v="122", "Not(A:Brand";v="24"',
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+  };
 
-    const $ = cheerio.load(html);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await axios.get(target, {
+        timeout: 15000,
+        maxRedirects: 5,
+        headers,
+        validateStatus: () => true,
+      });
 
-    const hasViewport = $('meta[name="viewport"]').length > 0;
-    const title = $("title").first().text().trim();
-    const metaDesc = $('meta[name="description"]').attr("content") || "";
-    const h1count = $("h1").length;
-    const imgCount = $("img").length;
-    const hasTel = /tel:|telefono|chiamaci/i.test(html);
-    const hasMail = /mailto:|@/.test(html);
-    const social = ["facebook.com", "instagram.com", "linkedin.com", "twitter.com", "tiktok.com"].filter((s) => html.includes(s));
-    const ctaWords = (html.match(/prenota|contatt|chiama|preventivo|richiedi|book|scopri/gi) || []).length;
+      if (r.status === 403 || r.status === 401 || r.status === 429) {
+        if (attempt === 0) { await new Promise((res) => setTimeout(res, 1200)); continue; }
+        return { reachable: false, blocked: true, text: "", signals: {} };
+      }
+      if (r.status >= 400) {
+        return { reachable: false, blocked: false, text: "", signals: {} };
+      }
 
-    $("script, style, noscript, svg").remove();
-    const bodyText = $("body").text().replace(/\s+/g, " ").trim().slice(0, 2500);
+      const html = typeof r.data === "string" ? r.data : "";
+      if (!html) return { reachable: false, blocked: false, text: "", signals: {} };
 
-    return {
-      reachable: true,
-      text: bodyText,
-      signals: { hasViewport, title, metaDesc, h1count, imgCount, hasTel, hasMail, social, ctaWords, htmlSize: html.length },
-    };
-  } catch (e) {
-    return { reachable: false, text: "", signals: {}, err: e.message };
+      const $ = cheerio.load(html);
+      const hasViewport = $('meta[name="viewport"]').length > 0;
+      const title = $("title").first().text().trim();
+      const metaDesc = $('meta[name="description"]').attr("content") || "";
+      const h1count = $("h1").length;
+      const imgCount = $("img").length;
+      const hasTel = /tel:|telefono|chiamaci/i.test(html);
+      const hasMail = /mailto:|@/.test(html);
+      const social = ["facebook.com", "instagram.com", "linkedin.com", "twitter.com", "tiktok.com"].filter((s) => html.includes(s));
+      const ctaWords = (html.match(/prenota|contatt|chiama|preventivo|richiedi|book|scopri/gi) || []).length;
+
+      $("script, style, noscript, svg").remove();
+      const bodyText = $("body").text().replace(/\s+/g, " ").trim().slice(0, 2500);
+
+      return {
+        reachable: true,
+        blocked: false,
+        text: bodyText,
+        signals: { hasViewport, title, metaDesc, h1count, imgCount, hasTel, hasMail, social, ctaWords, htmlSize: html.length },
+      };
+    } catch (e) {
+      if (attempt === 0) { await new Promise((res) => setTimeout(res, 1000)); continue; }
+      return { reachable: false, blocked: false, text: "", signals: {}, err: e.message };
+    }
   }
+  return { reachable: false, blocked: false, text: "", signals: {} };
 }
 
 const CRITERI = `Valuta il sito su questi 7 criteri (ognuno 1-10) e poi calcola un punteggio finale 1-7 dove 1 = sito pessimo / grande opportunita di vendita, 7 = sito gia ottimo / poca opportunita.
@@ -280,25 +309,30 @@ app.post("/api/run", async (req, res) => {
 
     const leadsWithSites = await Promise.all(
       places.map(async (p) => {
-        const sito = p.website || "";
+        const rawSite = p.website || "";
+        const sitoValido = rawSite && !isSocialOrInvalid(rawSite);
         let content = "";
         let signals = {};
         let reachable = false;
-        if (sito) {
-          const hp = await fetchHomepage(sito);
+        let blocked = false;
+        if (sitoValido) {
+          const hp = await fetchHomepage(rawSite);
           content = hp.text;
           signals = hp.signals;
           reachable = hp.reachable;
+          blocked = hp.blocked;
         }
         return {
           name: p.title || p.name || "",
           city: p.city || zona,
           email_addr: (p.emails && p.emails[0]) || p.email || "",
           telefono: p.phone || "",
-          sito,
+          sito: sitoValido ? rawSite : "",
+          social_only: rawSite && !sitoValido ? rawSite : "",
           content,
           signals,
           reachable,
+          blocked,
         };
       })
     );
@@ -314,8 +348,10 @@ app.post("/api/run", async (req, res) => {
 
     const scored = await Promise.all(
       leadsWithSites.map(async (lead) => {
+        if (lead.social_only) return { ...lead, score: 1, issues: ["solo pagina social, nessun sito web"], punti_forti: [], criteri: {} };
         if (!lead.sito) return { ...lead, score: 1, issues: ["nessun sito web presente"], punti_forti: [], criteri: {} };
-        if (!lead.reachable || !lead.content) return { ...lead, score: 2, issues: ["sito non raggiungibile o vuoto"], punti_forti: [], criteri: {} };
+        if (lead.blocked) return { ...lead, score: 0, issues: ["sito protetto da anti-bot, analisi non possibile"], punti_forti: [], criteri: {} };
+        if (!lead.reachable || !lead.content) return { ...lead, score: 0, issues: ["sito non raggiungibile"], punti_forti: [], criteri: {} };
         try {
           const s = lead.signals || {};
           const segnali = `Segnali tecnici rilevati dalla homepage:
