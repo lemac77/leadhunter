@@ -104,7 +104,7 @@ function Overview({ leads, runs, setTab }) {
 }
 
 function Pipeline({ onRunComplete }) {
-  const [form, setForm] = useState({ zona: "Vicenza", settore: "dentisti", maxResults: 30 });
+  const [form, setForm] = useState({ zona: "Vicenza", settore: "dentisti", maxResults: 30, raggio: 10 });
   const [runState, setRunState] = useState(null);
   const [stepIdx, setStepIdx] = useState(-1);
   const [pct, setPct] = useState(0);
@@ -158,10 +158,10 @@ function Pipeline({ onRunComplete }) {
         </div>
         <div style={css.formRow}>
           <div><label style={css.fieldLabel}>Max risultati Maps</label><input style={css.input} type="number" value={form.maxResults} onChange={(e) => setForm({ ...form, maxResults: parseInt(e.target.value) })} /></div>
-          <div />
+          <div><label style={css.fieldLabel}>Raggio km (0 = tutta la provincia)</label><input style={css.input} type="number" min="0" value={form.raggio} onChange={(e) => setForm({ ...form, raggio: parseInt(e.target.value) || 0 })} /></div>
         </div>
         <div style={{ fontSize: 11, color: MU, marginBottom: 14, lineHeight: 1.6 }}>
-          Il pipeline trova e analizza tutti i lead. Le email le generi tu manualmente dalla sezione Leads, lead per lead.
+          Scrivi citta o CAP. Con un raggio in km la ricerca resta dentro quella zona (raggio piccolo = solo citta). Le email le generi tu dai singoli lead.
         </div>
         <button style={{ ...css.btnY, padding: "11px 26px" }} onClick={startRun} disabled={runState === "running"}>
           {runState === "running" ? "In esecuzione..." : "Lancia pipeline"}
