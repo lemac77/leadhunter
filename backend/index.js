@@ -31,6 +31,23 @@ function isSocialOrInvalid(url) {
   return SOCIAL_HOSTS.some((h) => u.includes(h));
 }
 
+async function geocode(query) {
+  try {
+    const q = /^\d{5}$/.test(query.trim()) ? `${query.trim()}, Italia` : `${query}, Italia`;
+    const r = await axios.get("https://nominatim.openstreetmap.org/search", {
+      params: { q, format: "json", limit: 1, countrycodes: "it" },
+      headers: { "User-Agent": "LeadHunter-StudioBrillo/1.0 (info@studiobrillo.com)" },
+      timeout: 10000,
+    });
+    if (r.data && r.data.length > 0) {
+      return { lat: parseFloat(r.data[0].lat), lon: parseFloat(r.data[0].lon), display: r.data[0].display_name };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchHomepage(url) {
   const target = url.startsWith("http") ? url : `https://${url}`;
   const headers = {
@@ -228,13 +245,17 @@ app.post("/api/genera-email", async (req, res) => {
         max_tokens: 500,
         messages: [{
           role: "user",
-          content: `Scrivi una email a freddo per Nicolò di Studio Brillo (studio creativo digitale di Vicenza) da inviare a ${f["Name"]}, attivita di tipo "${f["Settore"]}" a ${f["City"]}.
+          content: `Sei Nicolo, fondatore di Studio Brillo (studio creativo digitale di Vicenza). Stai scrivendo TU una email a freddo a un potenziale cliente.
 
-Sito: ${f["Sito"]}
-Punti deboli rilevati: ${f["Issues"] || "n/d"}
+DESTINATARIO della email: l'attivita "${f["Name"]}", tipo "${f["Settore"]}" a ${f["City"]}.
+MITTENTE della email: tu, Nicolo di Studio Brillo.
+
+Sito del destinatario: ${f["Sito"]}
+Punti deboli rilevati sul loro sito: ${f["Issues"] || "n/d"}
 Punti di forza: ${f["Punti forti"] || "n/d"}
 
-REGOLE FERREE sul tono:
+REGOLE FERREE:
+- L'email si rivolge a LORO (il titolare dell'attivita), non a Nicolo. Apri rivolgendoti a loro, mai con "Ciao Nicolo".
 - NON implicare mai che abbiano un problema o che il loro sito faccia schifo
 - Parti da una curiosita genuina o un complimento reale e specifico su di loro
 - Tono umano, diretto, da persona vera, non da venditore
@@ -242,7 +263,7 @@ REGOLE FERREE sul tono:
 - Max 5-6 righe
 - Chiudi con una domanda leggera o un aggancio soft, non con una proposta aggressiva
 
-Scrivi SOLO il corpo della mail, niente oggetto, niente firma.`,
+Scrivi SOLO il corpo della mail, niente oggetto, niente firma, niente "Ciao Nicolo".`,
         }],
       },
       { headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01" } }
@@ -273,7 +294,7 @@ async function getCalibration() {
 }
 
 app.post("/api/run", async (req, res) => {
-  const { zona, settore, maxResults } = req.body;
+  const { zona, settore, maxResults, raggio } = req.body;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -282,19 +303,33 @@ app.post("/api/run", async (req, res) => {
   const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
   try {
-    send({ step: 1, label: "Scraping Google Maps con Apify..." });
+    send({ step: 1, label: "Localizzazione zona..." });
+
+    const geo = await geocode(zona);
+    const apifyInput = {
+      searchStringsArray: [settore],
+      maxCrawledPlacesPerSearch: maxResults || 30,
+      language: "it",
+      scrapeContacts: true,
+    };
+
+    if (geo && raggio) {
+      apifyInput.customGeolocation = {
+        type: "Point",
+        coordinates: [geo.lon, geo.lat],
+        radiusKm: Number(raggio),
+      };
+      send({ step: 1, label: `Zona ${zona} trovata, raggio ${raggio} km. Scraping...` });
+    } else {
+      apifyInput.locationQuery = `${zona}, Italia`;
+      send({ step: 1, label: "Scraping Google Maps con Apify..." });
+    }
 
     let places = [];
     try {
       const r = await axios.post(
         `https://api.apify.com/v2/acts/${GMAPS_ACTOR}/run-sync-get-dataset-items?token=${APIFY}`,
-        {
-          searchStringsArray: [settore],
-          locationQuery: `${zona}, Italia`,
-          maxCrawledPlacesPerSearch: maxResults || 30,
-          language: "it",
-          scrapeContacts: true,
-        },
+        apifyInput,
         { headers: { "Content-Type": "application/json" }, timeout: 300000 }
       );
       places = Array.isArray(r.data) ? r.data.slice(0, maxResults || 30) : [];
