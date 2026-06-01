@@ -2,6 +2,15 @@ import { useState, useEffect } from "react";
 
 const API = "https://leadhunter-qpvs.onrender.com";
 
+let APP_PW = sessionStorage.getItem("lh_pw") || "";
+function authHeaders(extra = {}) {
+  return { ...extra, "x-app-password": APP_PW };
+}
+function apiFetch(path, opts = {}) {
+  const headers = authHeaders(opts.headers || {});
+  return fetch(`${API}${path}`, { ...opts, headers });
+}
+
 const Y = "#DFFF00";
 const BK = "#000000";
 const AN = "#1A1A1A";
@@ -114,7 +123,7 @@ function Pipeline({ onRunComplete }) {
     setRunState("running"); setStepIdx(0); setPct(0); setLbl("Avvio pipeline...");
     fetch(`${API}/api/run`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(form),
     }).then(async (res) => {
       const reader = res.body.getReader();
@@ -275,25 +284,25 @@ function Leads({ leads, setLeads }) {
 
   const onFb = async (lead, val) => {
     const newFb = lead.fb === val ? null : val;
-    await fetch(`${API}/api/feedback`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: lead.id, feedback: newFb || "" }) });
+    await fetch(`${API}/api/feedback`, { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ id: lead.id, feedback: newFb || "" }) });
     setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, fb: newFb } : l));
   };
 
   const onScarta = async (lead) => {
-    await fetch(`${API}/api/scarta`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: lead.id }) });
+    await fetch(`${API}/api/scarta`, { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ id: lead.id }) });
     setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, fb: "scartato" } : l));
   };
 
   const onDelete = async (lead) => {
     if (!window.confirm(`Cancellare definitivamente ${lead.name}?`)) return;
-    await fetch(`${API}/api/delete-lead`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: lead.id }) });
+    await fetch(`${API}/api/delete-lead`, { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ id: lead.id }) });
     setLeads((prev) => prev.filter((l) => l.id !== lead.id));
   };
 
   const onGen = async (lead) => {
     setGenId(lead.id);
     try {
-      const r = await fetch(`${API}/api/genera-email`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: lead.id }) });
+      const r = await fetch(`${API}/api/genera-email`, { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ id: lead.id }) });
       const d = await r.json();
       if (d.email_body) setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, email_body: d.email_body, email_stato: "da inviare" } : l));
     } catch {}
@@ -363,9 +372,59 @@ function Emails({ leads }) {
   );
 }
 
+function Login({ onLogin }) {
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    setLoading(true); setErr("");
+    try {
+      const r = await fetch(`${API}/api/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: pw }),
+      });
+      if (r.ok) {
+        APP_PW = pw;
+        sessionStorage.setItem("lh_pw", pw);
+        onLogin();
+      } else {
+        setErr("Password errata");
+      }
+    } catch {
+      setErr("Errore di connessione");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ background: BK, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui,sans-serif" }}>
+      <div style={{ background: AN, border: `1px solid ${BD}`, borderRadius: 12, padding: 40, width: 340, textAlign: "center" }}>
+        <div style={{ width: 44, height: 44, borderRadius: "50%", border: `1.5px solid ${Y}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600, color: Y, margin: "0 auto 18px" }}>SB</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: TX, letterSpacing: "2.5px", textTransform: "uppercase", marginBottom: 4 }}>Lead Hunter</div>
+        <div style={{ fontSize: 10, color: MU, letterSpacing: "1.5px", textTransform: "uppercase", marginBottom: 28 }}>Studio Brillo</div>
+        <input
+          type="password"
+          placeholder="Password"
+          value={pw}
+          onChange={(e) => setPw(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          style={{ background: AN3, border: `1px solid ${BD2}`, borderRadius: 6, padding: "11px 14px", fontSize: 14, color: TX, outline: "none", width: "100%", marginBottom: 12, textAlign: "center" }}
+        />
+        {err && <div style={{ color: "#F09595", fontSize: 12, marginBottom: 12 }}>{err}</div>}
+        <button onClick={submit} disabled={loading} style={{ background: Y, color: BK, border: "none", padding: "11px 24px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", letterSpacing: "1px", textTransform: "uppercase", width: "100%" }}>
+          {loading ? "Verifica..." : "Entra"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const TABS = ["overview", "pipeline", "leads", "emails"];
 
 export default function App() {
+  const [authed, setAuthed] = useState(!!sessionStorage.getItem("lh_pw"));
   const [tab, setTab] = useState("overview");
   const [leads, setLeads] = useState([]);
   const [runs, setRuns] = useState([]);
@@ -374,8 +433,8 @@ export default function App() {
   const fetchData = async () => {
     try {
       const [lr, rr] = await Promise.all([
-        fetch(`${API}/api/leads`).then((r) => r.json()),
-        fetch(`${API}/api/runs`).then((r) => r.json()),
+        fetch(`${API}/api/leads`, { headers: authHeaders() }).then((r) => r.json()),
+        fetch(`${API}/api/runs`, { headers: authHeaders() }).then((r) => r.json()),
       ]);
       setLeads(Array.isArray(lr) ? lr : []);
       setRuns(Array.isArray(rr) ? rr : []);
@@ -383,20 +442,22 @@ export default function App() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { if (authed) fetchData(); }, [authed]);
 
   const [wiping, setWiping] = useState(false);
   const wipeAll = async () => {
     if (!window.confirm("Cancellare TUTTI i lead e run da Airtable? Operazione irreversibile.")) return;
     setWiping(true);
     try {
-      await fetch(`${API}/api/wipe-all`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      await fetch(`${API}/api/wipe-all`, { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: "{}" });
       await fetchData();
     } catch {}
     setWiping(false);
   };
 
   const activeCount = leads.filter((l) => l.fb !== "scartato").length;
+
+  if (!authed) return <Login onLogin={() => setAuthed(true)} />;
 
   return (
     <div style={css.wrap}>
@@ -413,6 +474,7 @@ export default function App() {
             {wiping ? "Pulizia..." : "Pulisci tutto"}
           </button>
           <button style={css.btnY} onClick={() => setTab("pipeline")}>Nuovo run</button>
+          <button style={{ background: "transparent", border: `1px solid ${BD2}`, borderRadius: 6, padding: "9px 14px", fontSize: 11, letterSpacing: "1px", textTransform: "uppercase", color: MU, cursor: "pointer" }} onClick={() => { sessionStorage.removeItem("lh_pw"); APP_PW = ""; setAuthed(false); }}>Esci</button>
         </div>
       </div>
 
