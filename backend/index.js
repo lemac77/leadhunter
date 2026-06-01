@@ -23,6 +23,23 @@ const at = axios.create({
   headers: { Authorization: `Bearer ${AT_TOKEN}` },
 });
 
+const APP_PASSWORD = process.env.APP_PASSWORD || "";
+
+app.post("/api/login", (req, res) => {
+  const { password } = req.body;
+  if (!APP_PASSWORD) return res.json({ ok: true });
+  if (password === APP_PASSWORD) return res.json({ ok: true });
+  res.status(401).json({ ok: false, error: "Password errata" });
+});
+
+app.use("/api", (req, res, next) => {
+  if (req.path === "/health" || req.path === "/login") return next();
+  if (!APP_PASSWORD) return next();
+  const pw = req.headers["x-app-password"] || "";
+  if (pw === APP_PASSWORD) return next();
+  return res.status(401).json({ error: "Non autorizzato" });
+});
+
 const SOCIAL_HOSTS = ["facebook.com", "fb.com", "instagram.com", "linkedin.com", "twitter.com", "x.com", "tiktok.com", "youtube.com", "wa.me", "business.site"];
 
 function isSocialOrInvalid(url) {
