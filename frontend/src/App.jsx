@@ -31,7 +31,7 @@ const css = {
   card: { background: AN, border: `1px solid ${BD}`, borderRadius: 10, padding: 22, marginBottom: 18 },
   cardTitle: { fontSize: 10, letterSpacing: "2px", textTransform: "uppercase", color: MU, marginBottom: 18, display: "flex", alignItems: "center", gap: 10 },
   cardLine: { flex: 1, height: 1, background: BD },
-  scorePill: (sc) => ({ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 6, fontSize: 14, fontWeight: 600, ...(sc >= 5 ? { background: "#1a2600", color: Y, border: "1px solid #3a4f00" } : sc >= 3 ? { background: "#201600", color: "#EF9F27", border: "1px solid #3d2c00" } : { background: "#200000", color: "#F09595", border: "1px solid #3d0000" }) }),
+  scorePill: (sc) => ({ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 6, fontSize: 13, fontWeight: 600, ...(!sc ? { background: AN3, color: MU, border: `1px solid ${BD2}` } : sc >= 5 ? { background: "#1a2600", color: Y, border: "1px solid #3a4f00" } : sc >= 3 ? { background: "#201600", color: "#EF9F27", border: "1px solid #3d2c00" } : { background: "#200000", color: "#F09595", border: "1px solid #3d0000" }) }),
   badge: (t) => ({ display: "inline-block", padding: "3px 9px", borderRadius: 4, fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", fontWeight: 500, ...(t === "da inviare" ? { background: "#0d1a00", color: Y, border: "1px solid #2a4000" } : t === "inviata" ? { background: "#0a1f00", color: "#97C459", border: "1px solid #1d3d00" } : t === "approvato" ? { background: "#0d1a00", color: Y, border: "1px solid #3a4f00" } : { background: AN3, color: MU, border: `1px solid ${BD}` }) }),
   input: { background: AN3, border: `1px solid ${BD2}`, borderRadius: 6, padding: "10px 13px", fontSize: 13, color: TX, outline: "none", width: "100%" },
   select: { background: AN3, border: `1px solid ${BD2}`, borderRadius: 6, padding: "10px 13px", fontSize: 13, color: TX, outline: "none" },
@@ -50,6 +50,13 @@ const css = {
 };
 
 const CRIT_LABELS = { mobile: "Mobile", velocita: "Velocita", cta: "CTA", seo: "SEO", design: "Design", social: "Social", contatti: "Contatti" };
+const STATI = ["da inviare", "inviata", "ha risposto", "cliente"];
+const statoColor = (st) => {
+  if (st === "inviata") return { bg: "#0a1f00", col: "#97C459", bd: "#1d3d00" };
+  if (st === "ha risposto") return { bg: "#1a1400", col: "#EF9F27", bd: "#3d2c00" };
+  if (st === "cliente") return { bg: "#0d1a00", col: Y, bd: "#3a4f00" };
+  return { bg: "#0d1a00", col: Y, bd: "#2a4000" };
+};
 
 function parseCriteri(str) { try { return JSON.parse(str); } catch { return null; } }
 
@@ -84,9 +91,10 @@ function Login({ onLogin }) {
   );
 }
 
-function LeadCard({ lead, onApprove, onScarta, onDelete, onGen, generating, showApprove }) {
+function LeadCard({ lead, onApprove, onScarta, onDelete, onGen, onStato, generating, showApprove }) {
   const [open, setOpen] = useState(false);
   const crit = parseCriteri(lead.criteri);
+  const hasCrit = crit && Object.values(crit).some((v) => Number(v) > 0);
   const issues = (lead.issues || "").split(" | ").filter(Boolean);
   const forti = (lead.punti_forti || "").split(" | ").filter(Boolean);
   const isApproved = lead.fb === "ok";
@@ -94,20 +102,20 @@ function LeadCard({ lead, onApprove, onScarta, onDelete, onGen, generating, show
   return (
     <div style={css.leadRow}>
       <div style={css.leadHead} onClick={() => setOpen(!open)}>
-        <span style={css.scorePill(lead.score)}>{lead.score || "?"}</span>
+        <span style={{ ...css.scorePill(lead.score), fontSize: lead.score ? 13 : 10 }}>{lead.score || "n/d"}</span>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14, fontWeight: 500, color: TX }}>{lead.name}</div>
           <div style={{ fontSize: 11, color: MU, marginTop: 2 }}>{lead.city}{lead.telefono ? ` · ${lead.telefono}` : ""}</div>
         </div>
         {isApproved && <span style={css.badge("approvato")}>Approvato</span>}
-        {lead.email_body && <span style={css.badge(lead.email_stato || "da inviare")}>{lead.email_stato || "da inviare"}</span>}
+        {lead.email_body && (() => { const sc = statoColor(lead.email_stato || "da inviare"); return <span style={{ display: "inline-block", padding: "3px 9px", borderRadius: 4, fontSize: 10, letterSpacing: "1px", textTransform: "uppercase", fontWeight: 500, background: sc.bg, color: sc.col, border: `1px solid ${sc.bd}` }}>{lead.email_stato || "da inviare"}</span>; })()}
         {lead.fb === "scartato" && <span style={css.badge("skip")}>Scartato</span>}
         <span style={{ color: MU, fontSize: 14 }}>{open ? "▴" : "▾"}</span>
       </div>
 
       {open && (
         <div style={css.leadDetail}>
-          {crit && (
+          {hasCrit ? (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 24px", margin: "14px 0" }}>
               {Object.keys(CRIT_LABELS).map((k) => (
                 <div key={k} style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -116,6 +124,10 @@ function LeadCard({ lead, onApprove, onScarta, onDelete, onGen, generating, show
                   <span style={{ fontSize: 11, color: TX, width: 24, textAlign: "right" }}>{crit[k] || 0}</span>
                 </div>
               ))}
+            </div>
+          ) : (
+            <div style={{ margin: "14px 0", padding: "10px 12px", background: AN, border: `1px solid ${BD}`, borderRadius: 7, fontSize: 12, color: MU }}>
+              Sito non analizzato automaticamente. Controllalo a mano per valutarlo.
             </div>
           )}
           {issues.length > 0 && <div style={{ marginBottom: 10 }}>
@@ -143,7 +155,10 @@ function LeadCard({ lead, onApprove, onScarta, onDelete, onGen, generating, show
             {isApproved && lead.email_body && (
               <>
                 <button style={css.btnSm} onClick={() => navigator.clipboard.writeText(lead.email_body)}>Copia</button>
-                {lead.email_addr && <button style={css.btnSm} onClick={() => window.open(`mailto:${lead.email_addr}?body=${encodeURIComponent(lead.email_body)}`)}>Apri mail</button>}
+                {lead.email_addr && <button style={css.btnGen} onClick={() => { window.open(`mailto:${lead.email_addr}?subject=${encodeURIComponent("Studio Brillo")}&body=${encodeURIComponent(lead.email_body)}`); if ((lead.email_stato || "da inviare") === "da inviare") onStato(lead, "inviata"); }}>Apri mail</button>}
+                {(lead.email_stato || "da inviare") === "da inviare" && <button style={css.btnSm} onClick={() => onStato(lead, "inviata")}>Segna inviata</button>}
+                {lead.email_stato === "inviata" && <button style={css.btnSm} onClick={() => onStato(lead, "ha risposto")}>Ha risposto</button>}
+                {lead.email_stato === "ha risposto" && <button style={css.btnApprove} onClick={() => onStato(lead, "cliente")}>Diventa cliente</button>}
                 <button style={css.btnSm} onClick={() => onGen(lead)} disabled={generating}>Rigenera</button>
               </>
             )}
@@ -305,6 +320,10 @@ function Leads({ leads, setLeads, runs }) {
     } catch {}
     setGenId(null);
   };
+  const onStato = async (lead, stato) => {
+    await fetch(`${API}/api/email-stato`, { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ id: lead.id, stato }) });
+    setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, email_stato: stato } : l));
+  };
 
   const onDeleteRun = async (runId) => {
     if (!window.confirm("Eliminare tutti i lead di questo run?")) return;
@@ -346,7 +365,7 @@ function Leads({ leads, setLeads, runs }) {
               <div style={{ fontSize: 13, color: MU, padding: "12px 0" }}>Nessun lead in questo run.</div>
             ) : (
               filtered.map((l) => (
-                <LeadCard key={l.id} lead={l} onApprove={onApprove} onScarta={onScarta} onDelete={onDelete} onGen={onGen} generating={genId === l.id} showApprove={true} />
+                <LeadCard key={l.id} lead={l} onApprove={onApprove} onScarta={onScarta} onDelete={onDelete} onGen={onGen} onStato={onStato} generating={genId === l.id} showApprove={true} />
               ))
             )}
           </div>
@@ -377,6 +396,10 @@ function ColdLeads({ leads, setLeads }) {
       if (d.email_body) setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, email_body: d.email_body, email_stato: "da inviare" } : l));
     } catch {}
     setGenId(null);
+  };
+  const onStato = async (lead, stato) => {
+    await fetch(`${API}/api/email-stato`, { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ id: lead.id, stato }) });
+    setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, email_stato: stato } : l));
   };
 
   const withEmail = approved.filter((l) => l.email_body);
@@ -413,7 +436,7 @@ function ColdLeads({ leads, setLeads }) {
         <div style={{ marginBottom: 24 }}>
           <div style={{ ...css.cardTitle, marginBottom: 12 }}>Da completare <div style={css.cardLine} /></div>
           {withoutEmail.map((l) => (
-            <LeadCard key={l.id} lead={l} onApprove={() => {}} onScarta={onScarta} onDelete={onDelete} onGen={onGen} generating={genId === l.id} showApprove={false} />
+            <LeadCard key={l.id} lead={l} onApprove={() => {}} onScarta={onScarta} onDelete={onDelete} onGen={onGen} onStato={onStato} generating={genId === l.id} showApprove={false} />
           ))}
         </div>
       )}
@@ -422,7 +445,7 @@ function ColdLeads({ leads, setLeads }) {
         <div>
           <div style={{ ...css.cardTitle, marginBottom: 12 }}>Email pronte <div style={css.cardLine} /></div>
           {withEmail.map((l) => (
-            <LeadCard key={l.id} lead={l} onApprove={() => {}} onScarta={onScarta} onDelete={onDelete} onGen={onGen} generating={genId === l.id} showApprove={false} />
+            <LeadCard key={l.id} lead={l} onApprove={() => {}} onScarta={onScarta} onDelete={onDelete} onGen={onGen} onStato={onStato} generating={genId === l.id} showApprove={false} />
           ))}
         </div>
       )}
