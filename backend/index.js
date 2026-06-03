@@ -273,24 +273,38 @@ app.post("/api/genera-email", async (req, res) => {
         max_tokens: 500,
         messages: [{
           role: "user",
-          content: `Sei Nicolo, fondatore di Studio Brillo (studio creativo digitale di Vicenza). Stai scrivendo TU una email a freddo a un potenziale cliente.
+          content: `Sei Nicolo, fondatore di Studio Brillo (studio creativo digitale, Vicenza). Scrivi una email a freddo a un potenziale cliente.
 
-DESTINATARIO: l'attivita "${f["Name"]}", tipo "${f["Settore"]}" a ${f["City"]}.
-MITTENTE: tu, Nicolo di Studio Brillo.
-
-Sito del destinatario: ${f["Sito"]}
+DESTINATARIO: "${f["Name"]}", ${f["Settore"]} a ${f["City"]}.
+Sito: ${f["Sito"] || "nessun sito"}
 Punti deboli rilevati: ${f["Issues"] || "n/d"}
 Punti di forza: ${f["Punti forti"] || "n/d"}
 
-REGOLE FERREE:
-- Apri rivolgendoti A LORO (es. "Ho visto il vostro sito..."), MAI con "Ciao Nicolo"
-- NON implicare che abbiano problemi o che il sito faccia schifo
-- Parti da curiosita genuina o complimento specifico su di loro
-- Tono umano, diretto, non da venditore
-- Niente em dash, niente trattini lunghi
-- Max 5-6 righe, chiudi con domanda leggera
+STILE DA SEGUIRE (questo e il modello esatto):
+---
+Oggetto: [oggetto breve e concreto, non clickbait]
 
-Solo il corpo della mail, niente oggetto, niente firma.`,
+[Apertura: osservazione concreta e specifica su di loro, qualcosa che hai notato davvero. Non un complimento generico.]
+
+[Sviluppo: nomina il problema in modo neutro e factual. Spiega le conseguenze pratiche per loro, non per te. Max 2 righe.]
+
+[Chiusura: proposta soft, senza impegno. Una riga.]
+
+Nicolo
+studiobrillo.com
+---
+
+REGOLE FERREE:
+- MAI aprire con "Ciao Nicolo" o rivolgendoti a te stesso
+- MAI "in attesa di un vostro gentile riscontro" o formule burocratiche
+- MAI elenchi di link o portfolio, solo studiobrillo.com in firma
+- MAI tono da venditore o da agenzia
+- Scrivi come una persona reale che ha notato qualcosa di specifico
+- Se il sito non e raggiungibile, dillo in modo neutro (es. "non risponde", "non si apre")
+- Max 6-8 righe totali incluso oggetto e firma
+- Niente em dash
+
+Scrivi oggetto + corpo + firma. Niente altro.`,
         }],
       },
       { headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01" } }
