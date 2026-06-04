@@ -314,11 +314,17 @@ function ColdCard({ lead, onScarta, onDelete, onGen, onStato, generating }) {
               <div style={{ fontSize:14, fontWeight:500, color:TX }}>{lead.name}</div>
               <span style={{ fontSize:10, color:assignedCol, background:lead.assegnato==="Lucez"?"rgba(123,111,255,0.15)":"rgba(255,107,107,0.15)", border:`1px solid ${assignedCol}`, borderRadius:4, padding:"2px 8px", textTransform:"uppercase", letterSpacing:"0.5px", flexShrink:0 }}>{lead.assegnato}</span>
             </div>
-            <div style={{ fontSize:11, color:MU, marginTop:3 }}>
+            <div style={{ fontSize:11, color:MU, marginTop:3, display:"flex", flexWrap:"wrap", gap:8, alignItems:"center" }}>
               {lead.city}
-              {lead.telefono && <span style={{ marginLeft:8 }}>📞 {lead.telefono}</span>}
+              {lead.rating > 0 && <span style={{ color:"#EF9F27" }}>★ {lead.rating}</span>}
+              {lead.telefono && <a href={`tel:${lead.telefono.replace(/\s/g,"")}`} style={{ color:Y, textDecoration:"none" }}>📞 {lead.telefono}</a>}
             </div>
-            {lead.email_addr && <div style={{ fontSize:11, color:MU, marginTop:2 }}>✉ {lead.email_addr}</div>}
+            {lead.email_addr && (
+              <div style={{ fontSize:11, color:MU, marginTop:2, display:"flex", alignItems:"center", gap:8 }}>
+                <span>✉ {lead.email_addr}</span>
+                <button style={{ background:"transparent", border:`1px solid ${BD2}`, borderRadius:3, padding:"1px 7px", fontSize:10, color:MU, cursor:"pointer" }} onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(lead.email_addr); }}>Copia</button>
+              </div>
+            )}
             {lead.sito && <a href={lead.sito} target="_blank" rel="noreferrer" style={{ fontSize:11, color:Y, display:"block", marginTop:2 }}>{lead.sito}</a>}
           </div>
           <StatoDropdown lead={lead} onChange={onStato} />
