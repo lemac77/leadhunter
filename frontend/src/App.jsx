@@ -518,7 +518,7 @@ function ColdLeads({ leads, setLeads }) {
             <div style={{ display:"flex", gap:16 }}>
               <div><div style={{ fontSize:22, fontWeight:600, color:TX }}>{sl.leads.length}</div><div style={{ fontSize:10, color:MU, textTransform:"uppercase", letterSpacing:"1px" }}>Lead</div></div>
               <div><div style={{ fontSize:22, fontWeight:600, color:Y }}>{sl.clienti}</div><div style={{ fontSize:10, color:MU, textTransform:"uppercase", letterSpacing:"1px" }}>Clienti</div></div>
-              <div><div style={{ fontSize:22, fontWeight:600, color:"#97C459" }}>{sl.leads.filter((l) => l.email_body).length}</div><div style={{ fontSize:10, color:MU, textTransform:"uppercase", letterSpacing:"1px" }}>Email</div></div>
+              <div><div style={{ fontSize:22, fontWeight:600, color:"#97C459" }}>{sl.leads.filter((l) => ["inviata","ha risposto","cliente"].includes(l.email_stato)).length}</div><div style={{ fontSize:10, color:MU, textTransform:"uppercase", letterSpacing:"1px" }}>Contattati</div></div>
             </div>
           </div>
         ))}
