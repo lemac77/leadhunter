@@ -168,6 +168,7 @@ app.get("/api/leads", async (req, res) => {
       zona: rec.fields["Zona"] || "",
       settore: rec.fields["Settore"] || "",
       runId: rec.fields["RunId"] || "",
+      assegnato: rec.fields["Assegnato"] || "",
     }));
     res.json(leads);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -193,6 +194,14 @@ app.post("/api/feedback", async (req, res) => {
   try {
     const { id, feedback } = req.body;
     await at.patch(`/Leads/${id}`, { fields: { Feedback: feedback } });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/assegna", async (req, res) => {
+  try {
+    const { id, assegnato } = req.body;
+    await at.patch(`/Leads/${id}`, { fields: { Assegnato: assegnato } });
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
