@@ -197,6 +197,7 @@ app.get("/api/leads", async (req, res) => {
       settore: rec.fields["Settore"] || "",
       runId: rec.fields["RunId"] || "",
       assegnato: rec.fields["Assegnato"] || "",
+      rating: parseFloat(rec.fields["Rating"]) || 0,
     }));
     res.json(leads);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -307,6 +308,7 @@ app.post("/api/genera-email", async (req, res) => {
     const sito = f["Sito"] || "";
     const issues = (f["Issues"] || "").split(" | ").filter(Boolean);
     const forti = (f["Punti forti"] || "").split(" | ").filter(Boolean);
+    const rating = f["Rating"] ? `${f["Rating"]}/5 su Google` : null;
     const sitoBloccato = issues.some((x) => x.toLowerCase().includes("anti-bot") || x.toLowerCase().includes("non raggiungibile") || x.toLowerCase().includes("non analizzato"));
 
     const sitoContext = sitoBloccato
@@ -325,6 +327,7 @@ Punti di forza: ${forti.join(", ") || "nessuno specifico"}`;
           content: `Sei Nicolo, fondatore di Studio Brillo (studio creativo digitale, Vicenza). Scrivi una email a freddo professionale e personale.
 
 DESTINATARIO: "${f["Name"]}", ${f["Settore"] || "attivita locale"} a ${f["City"] || "Vicenza"}.
+${rating ? `Rating Google: ${rating}` : ""}
 ${sitoContext}
 
 ESEMPIO DI EMAIL BEN SCRITTA (segui questa struttura e questo tono esatto):
@@ -422,6 +425,8 @@ app.post("/api/run", async (req, res) => {
           city: p.city || zona,
           email_addr: (p.emails && p.emails[0]) || p.email || "",
           telefono: p.phone || "",
+          rating: p.totalScore || p.rating || 0,
+          reviewsCount: p.reviewsCount || 0,
           sito: sitoValido ? rawSite : "",
           social_only: rawSite && !sitoValido ? rawSite : "",
           content, signals, reachable, blocked,
@@ -506,6 +511,7 @@ app.post("/api/run", async (req, res) => {
             fields: {
               Name: l.name, City: l.city, Score: Math.round(Number(l.score)) || 0,
               Email: l.email_addr, Telefono: l.telefono || "", Sito: l.sito,
+              Rating: l.rating ? parseFloat(l.rating.toFixed(1)) : 0,
               "Email stato": "", "Email body": "", Feedback: "",
               Criteri: typeof l.criteri === "object" ? JSON.stringify(l.criteri) : "",
               Issues: (l.issues || []).join(" | "),
