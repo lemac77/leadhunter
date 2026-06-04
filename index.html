@@ -1,14 +1,24 @@
 <!doctype html>
-<html lang="en">
+<html lang="it">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/leadhunter/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <title>Lead Hunter — Studio Brillo</title>
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="Pipeline di lead generation Studio Brillo" />
+    <link rel="manifest" href="/leadhunter/manifest.json" />
+    <link rel="apple-touch-icon" href="/leadhunter/icon-192.png" />
     <script type="module" crossorigin src="/leadhunter/assets/index-DoX9jd8p.js"></script>
     <link rel="stylesheet" crossorigin href="/leadhunter/assets/index-3qQPVTt6.css">
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/leadhunter/sw.js');
+        });
+      }
+    </script>
   </body>
 </html>
