@@ -60,15 +60,43 @@ function isSocialOrInvalid(url) {
   return SOCIAL_HOSTS.some((h) => u.includes(h));
 }
 
+const VENETO_COORDS = {
+  "vicenza":   { lat: 45.5455, lon: 11.5354 },
+  "padova":    { lat: 45.4064, lon: 11.8768 },
+  "verona":    { lat: 45.4384, lon: 10.9916 },
+  "venezia":   { lat: 45.4408, lon: 12.3155 },
+  "treviso":   { lat: 45.6669, lon: 12.2429 },
+  "bassano":   { lat: 45.7671, lon: 11.7344 },
+  "thiene":    { lat: 45.7063, lon: 11.4786 },
+  "schio":     { lat: 45.7148, lon: 11.3557 },
+  "valdagno":  { lat: 45.6473, lon: 11.3003 },
+  "arzignano": { lat: 45.5234, lon: 11.3399 },
+  "lonigo":    { lat: 45.3857, lon: 11.3829 },
+  "montecchio":{ lat: 45.5088, lon: 11.4054 },
+  "asiago":    { lat: 45.8726, lon: 11.5113 },
+  "marostica": { lat: 45.7486, lon: 11.6565 },
+  "cittadella":{ lat: 45.6477, lon: 11.7884 },
+};
+
 async function geocode(query) {
   try {
-    const q = /^\d{5}$/.test(query.trim()) ? `${query.trim()}, Italia` : `${query}, Italia`;
+    const key = query.trim().toLowerCase().replace(/[^a-z]/g, "");
+    for (const [k, v] of Object.entries(VENETO_COORDS)) {
+      if (key.includes(k) || k.includes(key)) return v;
+    }
+    const isCAP = /^\d{5}$/.test(query.trim());
+    const params = isCAP
+      ? { postalcode: query.trim(), country: "it", format: "json", limit: 1, addressdetails: 1 }
+      : { city: query.trim(), country: "it", format: "json", limit: 3, addressdetails: 1 };
     const r = await axios.get("https://nominatim.openstreetmap.org/search", {
-      params: { q, format: "json", limit: 1, countrycodes: "it" },
+      params,
       headers: { "User-Agent": "LeadHunter-StudioBrillo/1.0" },
       timeout: 10000,
     });
-    if (r.data && r.data.length > 0) return { lat: parseFloat(r.data[0].lat), lon: parseFloat(r.data[0].lon) };
+    if (r.data && r.data.length > 0) {
+      const city = r.data.find((x) => x.type === "city" || x.type === "administrative" || x.class === "place") || r.data[0];
+      return { lat: parseFloat(city.lat), lon: parseFloat(city.lon) };
+    }
     return null;
   } catch { return null; }
 }
@@ -275,45 +303,65 @@ app.post("/api/genera-email", async (req, res) => {
     const { id } = req.body;
     const rec = await at.get(`/Leads/${id}`);
     const f = rec.data.fields;
+
+    const sito = f["Sito"] || "";
+    const issues = (f["Issues"] || "").split(" | ").filter(Boolean);
+    const forti = (f["Punti forti"] || "").split(" | ").filter(Boolean);
+    const sitoBloccato = issues.some((x) => x.toLowerCase().includes("anti-bot") || x.toLowerCase().includes("non raggiungibile") || x.toLowerCase().includes("non analizzato"));
+
+    const sitoContext = sitoBloccato
+      ? `Il sito esiste (${sito}) ma non e stato possibile analizzarlo automaticamente. Non fare affermazioni specifiche sui problemi del sito. Concentrati su cosa potrebbe mancaare in generale per un'attivita del loro tipo.`
+      : `Sito analizzato: ${sito}
+Punti deboli rilevati: ${issues.join(", ") || "nessuno specifico"}
+Punti di forza: ${forti.join(", ") || "nessuno specifico"}`;
+
     const resp = await axios.post(
       "https://api.anthropic.com/v1/messages",
       {
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 500,
+        max_tokens: 700,
         messages: [{
           role: "user",
-          content: `Sei Nicolo, fondatore di Studio Brillo (studio creativo digitale, Vicenza). Scrivi una email a freddo a un potenziale cliente.
+          content: `Sei Nicolo, fondatore di Studio Brillo (studio creativo digitale, Vicenza). Scrivi una email a freddo professionale e personale.
 
-DESTINATARIO: "${f["Name"]}", ${f["Settore"]} a ${f["City"]}.
-Sito: ${f["Sito"] || "nessun sito"}
-Punti deboli rilevati: ${f["Issues"] || "n/d"}
-Punti di forza: ${f["Punti forti"] || "n/d"}
+DESTINATARIO: "${f["Name"]}", ${f["Settore"] || "attivita locale"} a ${f["City"] || "Vicenza"}.
+${sitoContext}
 
-STILE DA SEGUIRE (questo e il modello esatto):
+ESEMPIO DI EMAIL BEN SCRITTA (segui questa struttura e questo tono esatto):
 ---
-Oggetto: [oggetto breve e concreto, non clickbait]
+Oggetto: Un'officina cosi apprezzata merita un sito che la rappresenti davvero
 
-[Apertura: osservazione concreta e specifica su di loro, qualcosa che hai notato davvero. Non un complimento generico.]
+Buonasera,
+ho scoperto Autofficina King cercando officine specializzate in provincia di Vicenza.
+Piu di 100 recensioni Google, una valutazione molto alta, servizi specialistici che vanno dalla meccatronica alle auto ibride ed elettriche. Si capisce subito che dietro c'e una realta competente e aggiornata.
 
-[Sviluppo: nomina il problema in modo neutro e factual. Spiega le conseguenze pratiche per loro, non per te. Max 2 righe.]
+Poi ho visitato il sito.
+Le informazioni ci sono, ma l'immagine che trasmette online non rende giustizia al livello dell'officina. Grafica datata, struttura poco immediata e contenuti che rischiano di far percepire un'azienda diversa da quella che i clienti trovano realmente.
 
-[Chiusura: proposta soft, senza impegno. Una riga.]
+Ed e un peccato, perche oggi molti clienti si fanno un'idea della professionalita di un'attivita gia nei primi 10 secondi sul sito.
 
+Lavoro con Studio Brillo e realizzo siti web per attivita locali che vogliono una presenza online all'altezza del servizio che offrono ogni giorno.
+
+Se vi fa piacere, posso prepararvi gratuitamente una bozza grafica di come potrebbe apparire oggi il sito, senza alcun impegno. Se vi piace ne parliamo, altrimenti nessun problema.
+
+Resto a disposizione e vi auguro buon lavoro.
 Nicolo
+Studio Brillo
 studiobrillo.com
 ---
 
 REGOLE FERREE:
-- MAI aprire con "Ciao Nicolo" o rivolgendoti a te stesso
-- MAI "in attesa di un vostro gentile riscontro" o formule burocratiche
-- MAI elenchi di link o portfolio, solo studiobrillo.com in firma
-- MAI tono da venditore o da agenzia
-- Scrivi come una persona reale che ha notato qualcosa di specifico
-- Se il sito non e raggiungibile, dillo in modo neutro (es. "non risponde", "non si apre")
-- Max 6-8 righe totali incluso oggetto e firma
+- Stessa struttura: apertura con scoperta genuina + dati concreti, poi osservazione sul sito, poi conseguenza pratica, poi proposta soft
+- MAI dire che il sito "non si apre" o "non risponde" a meno che tu non sia CERTO che sia vero (se hai il dubbio, non dirlo)
+- MAI inventare dati (recensioni, valutazioni) che non hai - usa solo quelli nei punti di forza/debolezza forniti
+- MAI tono da venditore, MAI formule burocratiche come "in attesa di riscontro"
+- L'oggetto deve essere specifico per questa attivita, non generico
+- Personalizza con dettagli reali dell'attivita se disponibili nei punti di forza/debolezza
+- Firma sempre: Nicolo / Studio Brillo / studiobrillo.com
 - Niente em dash
+- Lunghezza: simile all'esempio, non piu corta
 
-Scrivi oggetto + corpo + firma. Niente altro.`,
+Scrivi l'email completa con oggetto, corpo e firma. Nient'altro.`,
         }],
       },
       { headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01" } }
