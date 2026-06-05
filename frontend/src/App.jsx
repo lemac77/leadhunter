@@ -270,6 +270,7 @@ function LeadCard({ lead, onApprove, onScarta, onDelete, onGen, onStato, generat
           </div>}
           <div style={{ fontSize:12, color:MU, marginBottom:12 }}>
             {lead.sito && <div><a href={lead.sito} target="_blank" rel="noreferrer" style={{ color:Y }}>{lead.sito}</a></div>}
+            {lead.gbp && <div style={{ marginTop:3 }}><a href={lead.gbp} target="_blank" rel="noreferrer" style={{ color:"#4285F4", textDecoration:"none" }}>📍 Google Business Profile</a></div>}
             {lead.email_addr && <div style={{ marginTop:3 }}>✉ {lead.email_addr}</div>}
             {lead.telefono && <div style={{ marginTop:3 }}><a href={`tel:${lead.telefono.replace(/\s/g,"")}`} style={{ color:Y, textDecoration:"none" }}>📞 {lead.telefono}</a></div>}
           </div>
@@ -321,6 +322,7 @@ function ColdCard({ lead, onScarta, onDelete, onGen, onStato, generating }) {
               </div>
             )}
             {lead.sito && <a href={lead.sito} target="_blank" rel="noreferrer" style={{ fontSize:11, color:Y, display:"block", marginTop:2 }}>{lead.sito}</a>}
+            {lead.gbp && <a href={lead.gbp} target="_blank" rel="noreferrer" style={{ fontSize:11, color:"#4285F4", display:"block", marginTop:2, textDecoration:"none" }}>📍 GBP</a>}
           </div>
           <StatoDropdown lead={lead} onChange={onStato} />
         </div>
