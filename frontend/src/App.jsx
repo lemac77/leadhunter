@@ -368,6 +368,55 @@ function ColdCard({ lead, onScarta, onDelete, onGen, onStato, generating }) {
   );
 }
 
+function CollapsibleRunGroups({ runGroups, runs, search, genId, onApprove, onScarta, onDelete, onGen, onStato, onDeleteRun }) {
+  const [openGroups, setOpenGroups] = useState(() => {
+    const first = runGroups[0]?.runId;
+    return first ? { [first]: true } : {};
+  });
+
+  const toggle = (runId) => setOpenGroups((prev) => ({ ...prev, [runId]: !prev[runId] }));
+
+  return (
+    <div>
+      {runGroups.map(({ runId, items }) => {
+        const filtered = search ? items.filter((l) => l.name.toLowerCase().includes(search.toLowerCase()) || l.city.toLowerCase().includes(search.toLowerCase())) : items;
+        const run = runs.find((r) => r.runId === runId);
+        const isOpen = !!openGroups[runId];
+        const approvati = filtered.filter((l) => l.fb === "ok").length;
+
+        return (
+          <div key={runId} style={{ marginBottom:12 }}>
+            <div
+              style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 16px", background:AN, border:`1px solid ${BD}`, borderRadius: isOpen ? "9px 9px 0 0" : 9, cursor:"pointer" }}
+              onClick={() => toggle(runId)}
+            >
+              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                <span style={{ fontSize:14, color:isOpen?TX:MU }}>{isOpen ? "▾" : "▸"}</span>
+                <div>
+                  <div style={{ fontSize:13, fontWeight:500, color:TX }}>{run ? `${run.zona} — ${run.settore}` : runId}</div>
+                  <div style={{ fontSize:11, color:MU, marginTop:2 }}>
+                    {run?.date} · {filtered.length} lead
+                    {approvati > 0 && <span style={{ marginLeft:8, color:Y }}>· {approvati} approvati</span>}
+                  </div>
+                </div>
+              </div>
+              <button style={btn.del} onClick={(e) => { e.stopPropagation(); onDeleteRun(runId); }}>Elimina</button>
+            </div>
+            {isOpen && (
+              <div style={{ border:`1px solid ${BD}`, borderTop:"none", borderRadius:"0 0 9px 9px", padding:"12px 12px 4px" }}>
+                {filtered.length === 0
+                  ? <div style={{ fontSize:13, color:MU, padding:"8px 4px" }}>Nessun lead.</div>
+                  : filtered.map((l) => <LeadCard key={l.id} lead={l} onApprove={onApprove} onScarta={onScarta} onDelete={onDelete} onGen={onGen} onStato={onStato} generating={genId===l.id} />)
+                }
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── LEADS TAB ────────────────────────────────────────────────────────────────
 function Leads({ leads, setLeads, runs }) {
   const [selectedRun, setSelectedRun] = useState("tutti");
@@ -432,25 +481,8 @@ function Leads({ leads, setLeads, runs }) {
           placeholder="Cerca..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
-      {runGroups.map(({ runId, items }) => {
-        const filtered = search ? items.filter((l) => l.name.toLowerCase().includes(search.toLowerCase()) || l.city.toLowerCase().includes(search.toLowerCase())) : items;
-        const run = runs.find((r) => r.runId===runId);
-        return (
-          <div key={runId} style={{ marginBottom:24 }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10, paddingBottom:10, borderBottom:`1px solid ${BD}` }}>
-              <div>
-                <div style={{ fontSize:13, fontWeight:500, color:TX }}>{run ? `${run.zona} — ${run.settore}` : runId}</div>
-                <div style={{ fontSize:11, color:MU, marginTop:2 }}>{run?.date} · {filtered.length} lead</div>
-              </div>
-              <button style={btn.del} onClick={() => onDeleteRun(runId)}>Elimina</button>
-            </div>
-            {filtered.length===0
-              ? <div style={{ fontSize:13, color:MU }}>Nessun lead.</div>
-              : filtered.map((l) => <LeadCard key={l.id} lead={l} onApprove={onApprove} onScarta={onScarta} onDelete={onDelete} onGen={onGen} onStato={onStato} generating={genId===l.id} />)
-            }
-          </div>
-        );
-      })}
+      <CollapsibleRunGroups runGroups={runGroups} runs={runs} search={search} genId={genId}
+        onApprove={onApprove} onScarta={onScarta} onDelete={onDelete} onGen={onGen} onStato={onStato} onDeleteRun={onDeleteRun} />
     </div>
   );
 }
