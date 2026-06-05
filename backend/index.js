@@ -173,6 +173,48 @@ async function runApifyAndWait(input, timeoutMs = 300000) {
   throw new Error("Timeout polling Apify run");
 }
 
+async function crawlWithApify(url, timeoutMs = 90000) {
+  try {
+    const startResp = await axios.post(
+      `https://api.apify.com/v2/acts/apify~website-content-crawler/runs?token=${APIFY}`,
+      {
+        startUrls: [{ url }],
+        maxCrawlPages: 1,
+        maxCrawlDepth: 0,
+        crawlerType: "cheerio",
+        initialConcurrency: 1,
+      },
+      { headers: { "Content-Type": "application/json" }, timeout: 20000 }
+    );
+    const runId = startResp.data.data.id;
+    const datasetId = startResp.data.data.defaultDatasetId;
+    const started = Date.now();
+
+    while (Date.now() - started < timeoutMs) {
+      await new Promise((res) => setTimeout(res, 4000));
+      const statusResp = await axios.get(
+        `https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY}`,
+        { timeout: 10000 }
+      );
+      const status = statusResp.data.data.status;
+      if (status === "SUCCEEDED") {
+        const itemsResp = await axios.get(
+          `https://api.apify.com/v2/datasets/${datasetId}/items?token=${APIFY}`,
+          { timeout: 20000 }
+        );
+        const item = itemsResp.data[0];
+        if (!item) return { text: "", html: "" };
+        return {
+          text: (item.text || item.markdown || "").slice(0, 4000),
+          html: (item.html || "").slice(0, 8000),
+        };
+      }
+      if (status === "FAILED" || status === "ABORTED" || status === "TIMED-OUT") return { text: "", html: "" };
+    }
+    return { text: "", html: "" };
+  } catch { return { text: "", html: "" }; }
+}
+
 app.get("/api/leads", async (req, res) => {
   try {
     const { runId } = req.query;
@@ -198,6 +240,7 @@ app.get("/api/leads", async (req, res) => {
       runId: rec.fields["RunId"] || "",
       assegnato: rec.fields["Assegnato"] || "",
       rating: parseFloat(rec.fields["Rating"]) || 0,
+      hook_mail: rec.fields["Hook mail"] || "",
     }));
     res.json(leads);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -309,13 +352,15 @@ app.post("/api/genera-email", async (req, res) => {
     const issues = (f["Issues"] || "").split(" | ").filter(Boolean);
     const forti = (f["Punti forti"] || "").split(" | ").filter(Boolean);
     const rating = f["Rating"] ? `${f["Rating"]}/5 su Google` : null;
+    const hookMail = f["Hook mail"] || "";
     const sitoBloccato = issues.some((x) => x.toLowerCase().includes("anti-bot") || x.toLowerCase().includes("non raggiungibile") || x.toLowerCase().includes("non analizzato"));
 
     const sitoContext = sitoBloccato
-      ? `Il sito esiste (${sito}) ma non e stato possibile analizzarlo automaticamente. Non fare affermazioni specifiche sui problemi del sito. Concentrati su cosa potrebbe mancaare in generale per un'attivita del loro tipo.`
+      ? `Il sito esiste (${sito}) ma non e stato possibile analizzarlo. Non fare affermazioni specifiche sul sito.`
       : `Sito analizzato: ${sito}
-Punti deboli rilevati: ${issues.join(", ") || "nessuno specifico"}
-Punti di forza: ${forti.join(", ") || "nessuno specifico"}`;
+Punti deboli: ${issues.join(", ") || "nessuno specifico"}
+Punti di forza: ${forti.join(", ") || "nessuno specifico"}
+${hookMail ? `Hook apertura (usa questo come spunto per aprire la mail in modo specifico e personale): ${hookMail}` : ""}`;
 
     const resp = await axios.post(
       "https://api.anthropic.com/v1/messages",
@@ -354,17 +399,16 @@ studiobrillo.com
 ---
 
 REGOLE FERREE:
-- Stessa struttura: apertura con scoperta genuina + dati concreti, poi osservazione sul sito, poi conseguenza pratica, poi proposta soft
-- MAI dire che il sito "non si apre" o "non risponde" a meno che tu non sia CERTO che sia vero (se hai il dubbio, non dirlo)
-- MAI inventare dati (recensioni, valutazioni) che non hai - usa solo quelli nei punti di forza/debolezza forniti
-- MAI tono da venditore, MAI formule burocratiche come "in attesa di riscontro"
-- L'oggetto deve essere specifico per questa attivita, non generico
-- Personalizza con dettagli reali dell'attivita se disponibili nei punti di forza/debolezza
-- Firma sempre: Nicolo / Studio Brillo / studiobrillo.com
-- Niente em dash
-- Lunghezza: simile all'esempio, non piu corta
+- Usa l'hook di apertura fornito se disponibile, adattandolo in modo naturale
+- Stessa struttura: apertura specifica e personale, osservazione sul sito, conseguenza pratica, proposta soft
+- MAI dire che il sito non si apre se non sei certo
+- MAI inventare dati non forniti
+- MAI tono da venditore o formule burocratiche
+- Oggetto specifico per questa attivita
+- Firma: Nicolo / Studio Brillo / studiobrillo.com
+- Niente em dash, lunghezza simile all'esempio
 
-Scrivi l'email completa con oggetto, corpo e firma. Nient'altro.`,
+Scrivi l'email completa con oggetto, corpo e firma.`,
         }],
       },
       { headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01" } }
@@ -409,7 +453,7 @@ app.post("/api/run", async (req, res) => {
       return res.end();
     }
 
-    send({ step: 2, label: `Trovati ${places.length} posti. Analisi siti web...` });
+    send({ step: 2, label: `Trovati ${places.length} posti. Crawling siti con Apify...` });
 
     const leadsWithSites = await Promise.all(
       places.map(async (p) => {
@@ -417,8 +461,33 @@ app.post("/api/run", async (req, res) => {
         const sitoValido = rawSite && !isSocialOrInvalid(rawSite);
         let content = "", signals = {}, reachable = false, blocked = false;
         if (sitoValido) {
-          const hp = await fetchHomepage(rawSite);
-          content = hp.text; signals = hp.signals; reachable = hp.reachable; blocked = hp.blocked;
+          // Prima prova il crawler Apify, fallback sul fetch diretto
+          const crawled = await crawlWithApify(rawSite);
+          if (crawled.text) {
+            content = crawled.text;
+            reachable = true;
+            // Estrai segnali tecnici dall'HTML se disponibile
+            if (crawled.html) {
+              try {
+                const $ = cheerio.load(crawled.html);
+                signals = {
+                  hasViewport: $('meta[name="viewport"]').length > 0,
+                  title: $("title").first().text().trim(),
+                  metaDesc: $('meta[name="description"]').attr("content") || "",
+                  h1count: $("h1").length,
+                  hasTel: /tel:|telefono|chiamaci/i.test(crawled.html),
+                  hasMail: /mailto:|@/.test(crawled.html),
+                  social: ["facebook.com","instagram.com","linkedin.com","tiktok.com"].filter((s) => crawled.html.includes(s)),
+                  ctaWords: (crawled.html.match(/prenota|contatt|chiama|preventivo|richiedi|book|scopri/gi) || []).length,
+                  htmlSize: crawled.html.length,
+                };
+              } catch {}
+            }
+          } else {
+            // Fallback: fetch diretto
+            const hp = await fetchHomepage(rawSite);
+            content = hp.text; signals = hp.signals; reachable = hp.reachable; blocked = hp.blocked;
+          }
         }
         return {
           name: p.title || p.name || "",
@@ -476,16 +545,16 @@ app.post("/api/run", async (req, res) => {
             "https://api.anthropic.com/v1/messages",
             {
               model: "claude-haiku-4-5-20251001",
-              max_tokens: 600,
+              max_tokens: 800,
               messages: [{
                 role: "user",
-                content: `${CRITERI}${calibNote}\n\n${segnali}\n\nTesto homepage:\n${lead.content}\n\nRispondi SOLO in JSON:\n{"criteri":{"mobile":<1-10>,"velocita":<1-10>,"cta":<1-10>,"seo":<1-10>,"design":<1-10>,"social":<1-10>,"contatti":<1-10>},"score":<1-7>,"issues":["prob1","prob2"],"punti_forti":["punto1"]}`,
+                content: `${CRITERI}${calibNote}\n\n${segnali}\n\nTesto homepage:\n${lead.content}\n\nRispondi SOLO in JSON valido:\n{"criteri":{"mobile":<1-10>,"velocita":<1-10>,"cta":<1-10>,"seo":<1-10>,"design":<1-10>,"social":<1-10>,"contatti":<1-10>},"score":<1-7>,"issues":["prob1","prob2"],"punti_forti":["punto1"],"hook_mail":"Una frase di apertura personalizzata per una cold email, basata su qualcosa di SPECIFICO e reale trovato sul sito (un servizio particolare, una frase del sito, un dettaglio unico). Deve sembrare scritta da un essere umano che ha visitato davvero il sito. Max 2 righe."}`,
               }],
             },
             { headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01" } }
           );
           const parsed = JSON.parse(resp.data.content[0].text.match(/\{[\s\S]*\}/)[0]);
-          return { ...lead, score: parsed.score, issues: parsed.issues || [], punti_forti: parsed.punti_forti || [], criteri: parsed.criteri || {} };
+          return { ...lead, score: parsed.score, issues: parsed.issues || [], punti_forti: parsed.punti_forti || [], criteri: parsed.criteri || {}, hook_mail: parsed.hook_mail || "" };
         } catch (err) {
           console.error("SCORING ERROR:", lead.name, err.message);
           return { ...lead, score: 0, issues: ["errore analisi"], punti_forti: [], criteri: {} };
@@ -516,6 +585,7 @@ app.post("/api/run", async (req, res) => {
               Criteri: typeof l.criteri === "object" ? JSON.stringify(l.criteri) : "",
               Issues: (l.issues || []).join(" | "),
               "Punti forti": (l.punti_forti || []).join(" | "),
+              "Hook mail": l.hook_mail || "",
               Zona: zona, Settore: settore, RunId: runId,
             },
           })),
