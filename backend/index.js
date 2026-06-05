@@ -181,7 +181,7 @@ async function crawlWithApify(url, timeoutMs = 90000) {
         startUrls: [{ url }],
         maxCrawlPages: 1,
         maxCrawlDepth: 0,
-        crawlerType: "cheerio",
+        crawlerType: "playwright:chrome",
         initialConcurrency: 1,
       },
       { headers: { "Content-Type": "application/json" }, timeout: 20000 }
@@ -204,9 +204,26 @@ async function crawlWithApify(url, timeoutMs = 90000) {
         );
         const item = itemsResp.data[0];
         if (!item) return { text: "", html: "" };
+
+        const rawHtml = item.html || "";
+        let cleanText = "";
+
+        if (rawHtml) {
+          try {
+            const $ = cheerio.load(rawHtml);
+            // Rimuovi elementi di navigazione e struttura che confondono Claude
+            $("nav, header, footer, script, style, noscript, svg, .menu, .nav, #nav, #header, #footer, [role='navigation'], [role='banner']").remove();
+            cleanText = $("body").text().replace(/\s+/g, " ").trim().slice(0, 4000);
+          } catch {
+            cleanText = (item.text || item.markdown || "").slice(0, 4000);
+          }
+        } else {
+          cleanText = (item.text || item.markdown || "").slice(0, 4000);
+        }
+
         return {
-          text: (item.text || item.markdown || "").slice(0, 4000),
-          html: (item.html || "").slice(0, 8000),
+          text: cleanText,
+          html: rawHtml.slice(0, 8000),
         };
       }
       if (status === "FAILED" || status === "ABORTED" || status === "TIMED-OUT") return { text: "", html: "" };
@@ -218,10 +235,18 @@ async function crawlWithApify(url, timeoutMs = 90000) {
 app.get("/api/leads", async (req, res) => {
   try {
     const { runId } = req.query;
-    let url = `/Leads?maxRecords=500&sort[0][field]=Score&sort[0][direction]=asc`;
-    if (runId) url += `&filterByFormula={RunId}="${runId}"`;
-    const r = await at.get(url);
-    const leads = r.data.records.map((rec) => ({
+    let allRecords = [];
+    let offset = null;
+    do {
+      let url = `/Leads?pageSize=100&sort[0][field]=Score&sort[0][direction]=asc`;
+      if (runId) url += `&filterByFormula={RunId}="${runId}"`;
+      if (offset) url += `&offset=${offset}`;
+      const r = await at.get(url);
+      allRecords = allRecords.concat(r.data.records);
+      offset = r.data.offset;
+    } while (offset);
+
+    const leads = allRecords.map((rec) => ({
       id: rec.id,
       name: rec.fields["Name"] || "",
       city: rec.fields["City"] || "",
@@ -299,23 +324,39 @@ app.post("/api/delete-lead", async (req, res) => {
 app.post("/api/delete-run", async (req, res) => {
   try {
     const { runId } = req.body;
-    const r = await at.get(`/Leads?maxRecords=500&filterByFormula={RunId}="${runId}"`);
-    const ids = r.data.records.map((rec) => rec.id);
-    for (let i = 0; i < ids.length; i += 10) {
-      const chunk = ids.slice(i, i + 10);
+    let toDelete = [];
+    let kept = 0;
+    let offset = null;
+    do {
+      let url = `/Leads?pageSize=100&filterByFormula={RunId}="${runId}"`;
+      if (offset) url += `&offset=${offset}`;
+      const r = await at.get(url);
+      for (const rec of r.data.records) {
+        // PROTEGGI i lead approvati: non si cancellano mai con delete-run
+        if (rec.fields["Feedback"] === "ok") { kept++; continue; }
+        toDelete.push(rec.id);
+      }
+      offset = r.data.offset;
+    } while (offset);
+
+    for (let i = 0; i < toDelete.length; i += 10) {
+      const chunk = toDelete.slice(i, i + 10);
       const params = chunk.map((id) => `records[]=${id}`).join("&");
       await at.delete(`/Leads?${params}`);
     }
-    const runs = await at.get(`/Runs?maxRecords=10&filterByFormula={RunId}="${runId}"`);
-    for (const rec of runs.data.records) await at.delete(`/Runs/${rec.id}`);
-    res.json({ ok: true, deleted: ids.length });
+    // Elimina il run solo se non restano lead approvati collegati
+    if (kept === 0) {
+      const runs = await at.get(`/Runs?maxRecords=10&filterByFormula={RunId}="${runId}"`);
+      for (const rec of runs.data.records) await at.delete(`/Runs/${rec.id}`);
+    }
+    res.json({ ok: true, deleted: toDelete.length, kept });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 async function wipeTable(table) {
   let deleted = 0;
   while (true) {
-    const r = await at.get(`/${table}?maxRecords=100`);
+    const r = await at.get(`/${table}?maxRecords=100${table === "Leads" ? "&filterByFormula=NOT({Feedback}=\"ok\")" : ""}`);
     const ids = r.data.records.map((rec) => rec.id);
     if (ids.length === 0) break;
     for (let i = 0; i < ids.length; i += 10) {
@@ -442,53 +483,59 @@ app.post("/api/run", async (req, res) => {
 
     send({ step: 2, label: `Trovati ${places.length} posti. Crawling siti con Apify...` });
 
-    const leadsWithSites = await Promise.all(
-      places.map(async (p) => {
-        const rawSite = p.website || "";
-        const sitoValido = rawSite && !isSocialOrInvalid(rawSite);
-        let content = "", signals = {}, reachable = false, blocked = false;
-        if (sitoValido) {
-          // Prima prova il crawler Apify, fallback sul fetch diretto
-          const crawled = await crawlWithApify(rawSite);
-          if (crawled.text) {
-            content = crawled.text;
-            reachable = true;
-            // Estrai segnali tecnici dall'HTML se disponibile
-            if (crawled.html) {
-              try {
-                const $ = cheerio.load(crawled.html);
-                signals = {
-                  hasViewport: $('meta[name="viewport"]').length > 0,
-                  title: $("title").first().text().trim(),
-                  metaDesc: $('meta[name="description"]').attr("content") || "",
-                  h1count: $("h1").length,
-                  hasTel: /tel:|telefono|chiamaci/i.test(crawled.html),
-                  hasMail: /mailto:|@/.test(crawled.html),
-                  social: ["facebook.com","instagram.com","linkedin.com","tiktok.com"].filter((s) => crawled.html.includes(s)),
-                  ctaWords: (crawled.html.match(/prenota|contatt|chiama|preventivo|richiedi|book|scopri/gi) || []).length,
-                  htmlSize: crawled.html.length,
-                };
-              } catch {}
+    // Crawl in batch da 5 per non sovraccaricare Apify con playwright
+    const BATCH_SIZE = 5;
+    const leadsWithSites = [];
+    for (let i = 0; i < places.length; i += BATCH_SIZE) {
+      const batch = places.slice(i, i + BATCH_SIZE);
+      send({ step: 2, label: `Crawling siti ${i + 1}-${Math.min(i + BATCH_SIZE, places.length)} di ${places.length}...` });
+      const batchResults = await Promise.all(
+        batch.map(async (p) => {
+          const rawSite = p.website || "";
+          const sitoValido = rawSite && !isSocialOrInvalid(rawSite);
+          let content = "", signals = {}, reachable = false, blocked = false;
+          if (sitoValido) {
+            const crawled = await crawlWithApify(rawSite);
+            if (crawled.text) {
+              content = crawled.text;
+              reachable = true;
+              if (crawled.html) {
+                try {
+                  const $ = cheerio.load(crawled.html);
+                  signals = {
+                    hasViewport: $('meta[name="viewport"]').length > 0,
+                    title: $("title").first().text().trim(),
+                    metaDesc: $('meta[name="description"]').attr("content") || "",
+                    h1count: $("h1").length,
+                    imgCount: $("img").length,
+                    hasTel: /tel:|telefono|chiamaci/i.test(crawled.html),
+                    hasMail: /mailto:|@/.test(crawled.html),
+                    social: ["facebook.com","instagram.com","linkedin.com","tiktok.com"].filter((s) => crawled.html.includes(s)),
+                    ctaWords: (crawled.html.match(/prenota|contatt|chiama|preventivo|richiedi|book|scopri/gi) || []).length,
+                    htmlSize: crawled.html.length,
+                  };
+                } catch {}
+              }
+            } else {
+              const hp = await fetchHomepage(rawSite);
+              content = hp.text; signals = hp.signals; reachable = hp.reachable; blocked = hp.blocked;
             }
-          } else {
-            // Fallback: fetch diretto
-            const hp = await fetchHomepage(rawSite);
-            content = hp.text; signals = hp.signals; reachable = hp.reachable; blocked = hp.blocked;
           }
-        }
-        return {
-          name: p.title || p.name || "",
-          city: p.city || zona,
-          email_addr: (p.emails && p.emails[0]) || p.email || "",
-          telefono: p.phone || "",
-          rating: p.totalScore || p.rating || 0,
-          reviewsCount: p.reviewsCount || 0,
-          sito: sitoValido ? rawSite : "",
-          social_only: rawSite && !sitoValido ? rawSite : "",
-          content, signals, reachable, blocked,
-        };
-      })
-    );
+          return {
+            name: p.title || p.name || "",
+            city: p.city || zona,
+            email_addr: (p.emails && p.emails[0]) || p.email || "",
+            telefono: p.phone || "",
+            rating: p.totalScore || p.rating || 0,
+            reviewsCount: p.reviewsCount || 0,
+            sito: sitoValido ? rawSite : "",
+            social_only: rawSite && !sitoValido ? rawSite : "",
+            content, signals, reachable, blocked,
+          };
+        })
+      );
+      leadsWithSites.push(...batchResults);
+    }
 
     send({ step: 3, label: "Analisi UX con Claude (7 criteri)..." });
 
@@ -523,6 +570,7 @@ app.post("/api/run", async (req, res) => {
 - Title: ${s.title ? `"${s.title.slice(0, 50)}"` : "NO"}
 - Meta description: ${s.metaDesc ? "si" : "NO"}
 - H1: ${s.h1count}
+- Immagini trovate: ${s.imgCount || 0}
 - Telefono: ${s.hasTel ? "si" : "NO"}
 - Email: ${s.hasMail ? "si" : "NO"}
 - Social: ${s.social?.length ? s.social.join(", ") : "nessuno"}
@@ -550,7 +598,7 @@ Contenuto homepage:
 ${lead.content}
 ---
 
-IMPORTANTE: basa le tue osservazioni SOLO su cio che e effettivamente presente nel testo fornito. Non assumere l'assenza di immagini o contenuti visivi se non puoi verificarlo dal testo. Se il testo menziona servizi, prezzi, o elementi specifici, usali.
+IMPORTANTE: basa le osservazioni SOLO su cio che e effettivamente nel contenuto della pagina. La navigazione (menu, header, footer) e stata rimossa dal testo. Non segnalare mai "menu ripetuto" o "contenuto duplicato" perche e un artefatto del crawler, non un problema reale del sito. Se vedi testo ripetuto e quasi certamente la struttura HTML, ignoralo.
 
 Restituisci questo JSON:
 {
