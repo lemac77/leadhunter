@@ -6,8 +6,8 @@ function authHeaders(extra = {}) { return { ...extra, "x-app-password": APP_PW }
 
 const Y = "#DFFF00", BK = "#000000", AN = "#1A1A1A", AN2 = "#222222", AN3 = "#2a2a2a";
 const BD = "#2e2e2e", BD2 = "#3a3a3a", TX = "#f0f0f0", MU = "#888888", MU2 = "#555555";
-const LUCEZ_COL = "#7B6FFF"; // viola per Lucez
-const NICO_COL  = "#FF6B6B"; // rosso per Nico
+const LUCEZ_COL = "#7B6FFF";
+const NICO_COL  = "#FF6B6B";
 
 const STATI = ["da inviare", "inviata", "ha risposto", "cliente"];
 const statoStyle = (st) => {
@@ -108,12 +108,12 @@ function Overview({ leads, runs, setTab }) {
   const emailGen   = leads.filter((l) => l.email_body).length;
 
   const metrics = [
-    { label:"Lead attivi",        value:attivi },
-    { label:"Approvati",          value:approvati },
-    { label:"Contattati",         value:contattati },
-    { label:"In attesa",          value:attesa },
-    { label:"Clienti",            value:clienti },
-    { label:"Email generate",     value:emailGen },
+    { label:"Lead attivi",    value:attivi },
+    { label:"Approvati",      value:approvati },
+    { label:"Contattati",     value:contattati },
+    { label:"In attesa",      value:attesa },
+    { label:"Clienti",        value:clienti },
+    { label:"Email generate", value:emailGen },
   ];
 
   return (
@@ -530,7 +530,6 @@ function ColdLeads({ leads, setLeads }) {
     </div>
   );
 
-  // slot cards
   const slots = [
     { name:"Lucez", col:LUCEZ_COL, bg:"rgba(123,111,255,0.08)", leads:lucez, clienti:lucezClienti },
     { name:"Nico",  col:NICO_COL,  bg:"rgba(255,107,107,0.08)", leads:nico,  clienti:nicoClienti  },
@@ -542,7 +541,6 @@ function ColdLeads({ leads, setLeads }) {
 
   return (
     <div>
-      {/* Slot summary */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
         {slots.map((sl) => (
           <div key={sl.name} style={{ background:sl.bg, border:`1px solid ${sl.col}`, borderRadius:10, padding:"16px 14px" }}>
@@ -556,10 +554,9 @@ function ColdLeads({ leads, setLeads }) {
         ))}
       </div>
 
-      {/* Filtri */}
       <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap" }}>
-        {[["tutti","Tutti"],[" Lucez","Lucez"],["Nico","Nico"]].map(([v,l]) => (
-          <button key={v} style={{ ...btn.sm, color:slotFilter===v.trim()?Y:MU, borderColor:slotFilter===v.trim()?"#3a4f00":BD2, background:slotFilter===v.trim()?"#0d1a00":"transparent" }} onClick={() => setSlotFilter(v.trim())}>{l}</button>
+        {[["tutti","Tutti"],["Lucez","Lucez"],["Nico","Nico"]].map(([v,l]) => (
+          <button key={v} style={{ ...btn.sm, color:slotFilter===v?Y:MU, borderColor:slotFilter===v?"#3a4f00":BD2, background:slotFilter===v?"#0d1a00":"transparent" }} onClick={() => setSlotFilter(v)}>{l}</button>
         ))}
         <div style={{ flex:1 }} />
         <select style={{ background:AN3, border:`1px solid ${BD2}`, borderRadius:5, padding:"5px 10px", fontSize:11, color:TX, outline:"none" }}
@@ -577,8 +574,140 @@ function ColdLeads({ leads, setLeads }) {
   );
 }
 
+// ─── MERCATO TAB ──────────────────────────────────────────────────────────────
+const MERCATO_DATA = [
+  {
+    tier: "S",
+    colBg: "#200800", colBd: "#5a2000", colTx: "#EF9F27",
+    items: [
+      { name:"Studi dentistici",        desc:"Margini 60–80% su procedure estetiche. Il titolare è troppo impegnato per curarsi del digitale.", margine:85, sito:15 },
+      { name:"Centri estetici / laser",  desc:"Filler, laser, epilazione. Siti del 2014 con musica autoplay.", margine:80, sito:20 },
+      { name:"Agenzie assicurative",    desc:"Provvigioni ricorrenti, clienti fedeli da anni. Nessun incentivo online finché non arriva un competitor.", margine:75, sito:10 },
+      { name:"Avvocati / notai",        desc:"Tariffari alti, cliente acquisito per referral. Sito fatto dal nipote nel 2011.", margine:78, sito:8 },
+    ],
+  },
+  {
+    tier: "A",
+    colBg: "#1a1a00", colBd: "#4a4a00", colTx: Y,
+    items: [
+      { name:"Fisioterapisti / osteopati", desc:"€60–120/seduta, agenda sempre piena. Nessun SEO locale, zero Google Ads.", margine:68, sito:25 },
+      { name:"Imprese edili / serramentisti", desc:"Lavori da €5k–100k. Vivono di passaparola, ma la prima pagina Google vale oro.", margine:60, sito:22 },
+      { name:"Commercialisti / consulenti", desc:"Ricavi annui per cliente altissimi, retention ottima. Sito istituzionale fermo al 2016.", margine:70, sito:18 },
+      { name:"Scuole guida",              desc:"Ticket medio €1.000–2.000 per patente. Prenotazioni ancora al telefono.", margine:55, sito:20 },
+    ],
+  },
+  {
+    tier: "B",
+    colBg: "#001a08", colBd: "#004020", colTx: "#97C459",
+    items: [
+      { name:"Parrucchieri / barbieri premium", desc:"Margine alto sul servizio, clientela fidelizzata. Instagram ok ma sito inesistente.", margine:50, sito:30 },
+      { name:"Palestre / personal trainer",     desc:"Abbonamenti ricorrenti, buona LTV. Sito spesso con un template gratuito.", margine:48, sito:35 },
+    ],
+  },
+];
+
+function MercatoBar({ value, type }) {
+  const color = type === "margine" ? "#639922" : "#E24B4A";
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+      <span style={{ fontSize:10, color:MU, width:52, flexShrink:0, textTransform:"uppercase", letterSpacing:"0.5px" }}>{type}</span>
+      <div style={{ flex:1, height:5, background:BD, borderRadius:3 }}>
+        <div style={{ height:5, borderRadius:3, background:color, width:`${value}%` }} />
+      </div>
+      <span style={{ fontSize:10, color:TX, width:28, textAlign:"right" }}>{value}%</span>
+    </div>
+  );
+}
+
+function Mercato({ setTab }) {
+  const [activeTier, setActiveTier] = useState("tutti");
+
+  const visible = activeTier === "tutti"
+    ? MERCATO_DATA
+    : MERCATO_DATA.filter((g) => g.tier === activeTier);
+
+  return (
+    <div>
+      {/* Header info */}
+      <div style={{ background:AN, border:`1px solid ${BD}`, borderRadius:10, padding:"16px 16px", marginBottom:16, display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10 }}>
+        <div>
+          <div style={{ fontSize:10, letterSpacing:"2px", textTransform:"uppercase", color:MU, marginBottom:4 }}>Analisi mercato locale</div>
+          <div style={{ fontSize:13, color:TX }}>Business con alto margine e siti pessimi — Vicenza / Veneto</div>
+        </div>
+        <button style={{ ...btn.y, padding:"8px 16px", fontSize:11 }} onClick={() => setTab("pipeline")}>Lancia run</button>
+      </div>
+
+      {/* Filtro tier */}
+      <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+        {["tutti","S","A","B"].map((t) => (
+          <button key={t} style={{ ...btn.sm, color:activeTier===t?Y:MU, borderColor:activeTier===t?"#3a4f00":BD2, background:activeTier===t?"#0d1a00":"transparent", fontWeight:activeTier===t?600:400 }}
+            onClick={() => setActiveTier(t)}>
+            {t === "tutti" ? "Tutti" : `Tier ${t}`}
+          </button>
+        ))}
+      </div>
+
+      {/* Gruppi */}
+      {visible.map((group) => (
+        <div key={group.tier} style={{ marginBottom:20 }}>
+          {/* Tier header */}
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+            <span style={{ background:group.colBg, border:`1px solid ${group.colBd}`, color:group.colTx, borderRadius:6, padding:"4px 12px", fontSize:11, fontWeight:600, letterSpacing:"2px", textTransform:"uppercase" }}>
+              Tier {group.tier}
+            </span>
+            <div style={{ flex:1, height:1, background:BD }} />
+            <span style={{ fontSize:11, color:MU }}>{group.items.length} categorie</span>
+          </div>
+
+          {/* Cards */}
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {group.items.map((item) => (
+              <div key={item.name} style={{ background:AN2, border:`1px solid ${group.colBd}`, borderLeft:`3px solid ${group.colTx}`, borderRadius:9, padding:"14px 16px" }}>
+                <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:12, marginBottom:10 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:14, fontWeight:500, color:TX, marginBottom:4 }}>{item.name}</div>
+                    <div style={{ fontSize:12, color:MU, lineHeight:1.5 }}>{item.desc}</div>
+                  </div>
+                  <button
+                    style={{ ...btn.sm, flexShrink:0, fontSize:10, padding:"5px 10px", color:group.colTx, borderColor:group.colBd }}
+                    onClick={() => setTab("pipeline")}
+                  >
+                    Run
+                  </button>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  <MercatoBar value={item.margine} type="margine" />
+                  <MercatoBar value={item.sito}    type="sito" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {/* Legenda */}
+      <div style={{ background:AN, border:`1px solid ${BD}`, borderRadius:9, padding:"12px 16px", marginTop:8 }}>
+        <div style={{ fontSize:10, letterSpacing:"1px", textTransform:"uppercase", color:MU, marginBottom:10 }}>Legenda barre</div>
+        <div style={{ display:"flex", gap:20, flexWrap:"wrap" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ width:28, height:5, background:"#639922", borderRadius:3 }} />
+            <span style={{ fontSize:12, color:MU }}>Margine stimato</span>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ width:28, height:5, background:"#E24B4A", borderRadius:3 }} />
+            <span style={{ fontSize:12, color:MU }}>Qualità sito attuale</span>
+          </div>
+          <div style={{ fontSize:12, color:MU2, marginTop:2, width:"100%" }}>
+            Gap tra le due barre = opportunità. Più è largo, meglio è.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
-const TABS = ["overview","pipeline","leads","cold leads"];
+const TABS = ["overview","pipeline","leads","cold leads","mercato"];
 
 export default function App() {
   const [authed,  setAuthed]  = useState(!!sessionStorage.getItem("lh_pw"));
@@ -661,6 +790,7 @@ export default function App() {
             {tab==="pipeline"   && <Pipeline   onRunComplete={fetchData} />}
             {tab==="leads"      && <Leads      leads={leads} setLeads={setLeads} runs={runs} />}
             {tab==="cold leads" && <ColdLeads  leads={leads} setLeads={setLeads} />}
+            {tab==="mercato"    && <Mercato    setTab={setTab} />}
           </>
         )}
       </div>
