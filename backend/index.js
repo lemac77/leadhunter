@@ -535,27 +535,30 @@ app.post("/api/run", async (req, res) => {
               max_tokens: 1000,
               messages: [{
                 role: "user",
-                content: `You are a senior local marketing strategist. Analyze this business homepage and return ONLY valid JSON, no extra text, no markdown backticks.
+                content: `Sei un esperto di marketing locale. Analizza questa homepage e restituisci SOLO JSON valido, niente testo extra, niente backtick.
 
-Business name: ${lead.name}
-Category: ${settore}
-City: ${lead.city}
+Nome attivita: ${lead.name}
+Categoria: ${settore}
+Citta: ${lead.city}
+${lead.rating > 0 ? `Rating Google: ${lead.rating}/5` : ""}
 
-Technical signals:
+Segnali tecnici rilevati:
 ${segnali}
 
-Homepage content:
+Contenuto homepage:
 ---
 ${lead.content}
 ---
 
-Return this JSON:
+IMPORTANTE: basa le tue osservazioni SOLO su cio che e effettivamente presente nel testo fornito. Non assumere l'assenza di immagini o contenuti visivi se non puoi verificarlo dal testo. Se il testo menziona servizi, prezzi, o elementi specifici, usali.
+
+Restituisci questo JSON:
 {
-  "diagnosis": "<50 words max: what is concretely wrong with their online presence and what revenue is leaking. No buzzwords. Specific.>",
-  "site_brief": "<100 words max: hero angle, key services to highlight, tone that fits the industry, the CTA that will convert, one design choice that sets them apart from local competitors>",
-  "cold_message": "<70 words max: opens with ONE specific observation about THIS business taken from the homepage content, references their actual service or location, ends with a soft ask to see a mockup. Real person tone, no corporate language, no mention of AI. Sign off: Nicolo — studiobrillo.com>",
-  "score_totale": <1-10 overall UX score, 1=terrible 10=excellent>,
-  "problemi_principali": ["problema1", "problema2", "problema3"],
+  "diagnosis": "<max 50 parole: cosa c'e concretamente di sbagliato nella loro presenza online e quale fatturato stanno perdendo. Specifico, senza buzzword.>",
+  "site_brief": "<max 100 parole: angle principale, servizi chiave da evidenziare, tono adatto al settore, la CTA che converte, una scelta di design che li distingue dai competitor locali>",
+  "cold_message": "<max 70 parole: apre con UNA osservazione specifica su QUESTA attivita presa dal contenuto della homepage, cita il loro servizio o la loro location, chiude con una richiesta soft per vedere una bozza. Tono da persona reale, niente linguaggio corporate, niente menzione di AI. Firma: Nicolo - studiobrillo.com>",
+  "score_totale": <punteggio UX complessivo 1-10, 1=pessimo 10=ottimo>,
+  "problemi_principali": ["problema specifico 1 in italiano", "problema specifico 2 in italiano", "problema specifico 3 in italiano"],
   "criteri": {"mobile":<1-10>,"velocita":<1-10>,"cta":<1-10>,"seo":<1-10>,"design":<1-10>,"social":<1-10>,"contatti":<1-10>}
 }`,
               }],
@@ -600,7 +603,7 @@ Return this JSON:
             fields: {
               Name: l.name, City: l.city, Score: Math.round(Number(l.score)) || 0,
               Email: l.email_addr, Telefono: l.telefono || "", Sito: l.sito,
-              Rating: l.rating ? parseFloat(l.rating.toFixed(1)) : 0,
+              Rating: l.rating ? Math.round(parseFloat(l.rating) * 10) / 10 : 0,
               "Email stato": "", "Email body": "", Feedback: "",
               Criteri: typeof l.criteri === "object" ? JSON.stringify(l.criteri) : "",
               Issues: (l.issues || []).join(" | "),
