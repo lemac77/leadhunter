@@ -254,6 +254,7 @@ app.get("/api/leads", async (req, res) => {
       email_addr: rec.fields["Email"] || "",
       telefono: rec.fields["Telefono"] || "",
       sito: rec.fields["Sito"] || "",
+      gbp: rec.fields["Gbp"] || "",
       email_stato: rec.fields["Email stato"] || "",
       email_body: rec.fields["Email body"] || "",
       fb: rec.fields["Feedback"] || null,
@@ -530,6 +531,7 @@ app.post("/api/run", async (req, res) => {
             rating: p.totalScore || p.rating || 0,
             reviewsCount: p.reviewsCount || 0,
             sito: sitoValido ? rawSite : "",
+            gbp: p.url || "",
             social_only: rawSite && !sitoValido ? rawSite : "",
             content, signals, reachable, blocked,
           };
@@ -652,6 +654,7 @@ Restituisci questo JSON:
             fields: {
               Name: l.name, City: l.city, Score: Math.round(Number(l.score)) || 0,
               Email: l.email_addr, Telefono: l.telefono || "", Sito: l.sito,
+              Gbp: l.gbp || "",
               Rating: l.rating ? Math.round(parseFloat(l.rating) * 10) / 10 : 0,
               "Email stato": "", "Email body": "", Feedback: "",
               Criteri: typeof l.criteri === "object" ? JSON.stringify(l.criteri) : "",
