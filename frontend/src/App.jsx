@@ -142,8 +142,9 @@ function Overview({ leads, runs, setTab }) {
 }
 
 // ─── PIPELINE ────────────────────────────────────────────────────────────────
-function Pipeline({ onRunComplete }) {
-  const [form, setForm] = useState({ zona:"Vicenza", settore:"dentisti", maxResults:30, raggio:10 });
+function Pipeline({ onRunComplete, presetForm }) {
+  const [form, setForm] = useState(presetForm || { zona:"Vicenza", settore:"dentisti", maxResults:30, raggio:10 });
+  useEffect(() => { if (presetForm) setForm(presetForm); }, [presetForm]);
   const [runState, setRunState] = useState(null);
   const [stepIdx, setStepIdx] = useState(-1);
   const [pct, setPct] = useState(0);
@@ -613,7 +614,7 @@ function MercatoBar({ value, type }) {
   );
 }
 
-function Mercato({ setTab }) {
+function Mercato({ setTab, onLanciaRun }) {
   const [activeTier, setActiveTier] = useState("tutti");
   const visible = activeTier==="tutti" ? MERCATO_DATA : MERCATO_DATA.filter((g) => g.tier===activeTier);
 
@@ -624,7 +625,7 @@ function Mercato({ setTab }) {
           <div style={{ fontSize:10, letterSpacing:"2px", textTransform:"uppercase", color:MU, marginBottom:4 }}>Analisi mercato locale</div>
           <div style={{ fontSize:13, color:TX }}>Business con alto margine e siti pessimi — Vicenza / Veneto</div>
         </div>
-        <button style={{ ...btn.y, padding:"8px 16px", fontSize:11 }} onClick={() => setTab("pipeline")}>Lancia run</button>
+        <button style={{ ...btn.y, padding:"8px 16px", fontSize:11 }} onClick={() => onLanciaRun("")}>Lancia run</button>
       </div>
 
       <div style={{ display:"flex", gap:8, marginBottom:16 }}>
@@ -653,7 +654,7 @@ function Mercato({ setTab }) {
                     <div style={{ fontSize:14, fontWeight:500, color:TX, marginBottom:4 }}>{item.name}</div>
                     <div style={{ fontSize:12, color:MU, lineHeight:1.5 }}>{item.desc}</div>
                   </div>
-                  <button style={{ ...btn.sm, flexShrink:0, fontSize:10, padding:"5px 10px", color:group.colTx, borderColor:group.colBd }} onClick={() => setTab("pipeline")}>Run</button>
+                  <button style={{ ...btn.sm, flexShrink:0, fontSize:10, padding:"5px 10px", color:group.colTx, borderColor:group.colBd }} onClick={() => onLanciaRun(item.name)}>Run</button>
                 </div>
                 <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
                   <MercatoBar value={item.margine} type="margine" />
@@ -688,6 +689,12 @@ export default function App() {
   const [loading,  setLoading]  = useState(true);
   const [wiping,   setWiping]   = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pipelinePreset, setPipelinePreset] = useState(null);
+
+  const onLanciaRun = (settore) => {
+    setPipelinePreset({ zona:"Vicenza", settore: settore || "dentisti", maxResults:30, raggio:3 });
+    setTab("pipeline");
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -754,10 +761,10 @@ export default function App() {
         ) : (
           <>
             {tab==="overview"   && <Overview   leads={leads} runs={runs} setTab={setTab} />}
-            {tab==="pipeline"   && <Pipeline   onRunComplete={fetchData} />}
+            {tab==="pipeline"   && <Pipeline   onRunComplete={fetchData} presetForm={pipelinePreset} />}
             {tab==="leads"      && <Leads      leads={leads} setLeads={setLeads} runs={runs} />}
             {tab==="cold leads" && <ColdLeads  leads={leads} setLeads={setLeads} />}
-            {tab==="mercato"    && <Mercato    setTab={setTab} />}
+            {tab==="mercato"    && <Mercato    setTab={setTab} onLanciaRun={onLanciaRun} />}
           </>
         )}
       </div>
