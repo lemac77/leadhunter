@@ -241,6 +241,8 @@ app.get("/api/leads", async (req, res) => {
       assegnato: rec.fields["Assegnato"] || "",
       rating: parseFloat(rec.fields["Rating"]) || 0,
       hook_mail: rec.fields["Hook mail"] || "",
+      site_brief: rec.fields["Site brief"] || "",
+      diagnosis: rec.fields["Diagnosis"] || "",
     }));
     res.json(leads);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -350,17 +352,10 @@ app.post("/api/genera-email", async (req, res) => {
 
     const sito = f["Sito"] || "";
     const issues = (f["Issues"] || "").split(" | ").filter(Boolean);
-    const forti = (f["Punti forti"] || "").split(" | ").filter(Boolean);
     const rating = f["Rating"] ? `${f["Rating"]}/5 su Google` : null;
     const hookMail = f["Hook mail"] || "";
-    const sitoBloccato = issues.some((x) => x.toLowerCase().includes("anti-bot") || x.toLowerCase().includes("non raggiungibile") || x.toLowerCase().includes("non analizzato"));
-
-    const sitoContext = sitoBloccato
-      ? `Il sito esiste (${sito}) ma non e stato possibile analizzarlo. Non fare affermazioni specifiche sul sito.`
-      : `Sito analizzato: ${sito}
-Punti deboli: ${issues.join(", ") || "nessuno specifico"}
-Punti di forza: ${forti.join(", ") || "nessuno specifico"}
-${hookMail ? `Hook apertura (usa questo come spunto per aprire la mail in modo specifico e personale): ${hookMail}` : ""}`;
+    const siteBrief = f["Site brief"] || "";
+    const diagnosis = f["Diagnosis"] || "";
 
     const resp = await axios.post(
       "https://api.anthropic.com/v1/messages",
@@ -369,46 +364,38 @@ ${hookMail ? `Hook apertura (usa questo come spunto per aprire la mail in modo s
         max_tokens: 700,
         messages: [{
           role: "user",
-          content: `Sei Nicolo, fondatore di Studio Brillo (studio creativo digitale, Vicenza). Scrivi una email a freddo professionale e personale.
+          content: `Sei Nicolo, fondatore di Studio Brillo (studio creativo digitale, Vicenza). Devi scrivere una email a freddo completa.
 
 DESTINATARIO: "${f["Name"]}", ${f["Settore"] || "attivita locale"} a ${f["City"] || "Vicenza"}.
 ${rating ? `Rating Google: ${rating}` : ""}
-${sitoContext}
+Sito: ${sito}
+${diagnosis ? `Diagnosi presenza online: ${diagnosis}` : ""}
+${issues.length ? `Problemi principali: ${issues.join(", ")}` : ""}
+${siteBrief ? `Brief sito ideale: ${siteBrief}` : ""}
+${hookMail ? `Messaggio di partenza (espandilo in email completa mantenendo tono e apertura specifica): ${hookMail}` : ""}
 
-ESEMPIO DI EMAIL BEN SCRITTA (segui questa struttura e questo tono esatto):
----
-Oggetto: Un'officina cosi apprezzata merita un sito che la rappresenti davvero
+STRUTTURA RICHIESTA:
+Oggetto: [specifico per questa attivita]
 
-Buonasera,
-ho scoperto Autofficina King cercando officine specializzate in provincia di Vicenza.
-Piu di 100 recensioni Google, una valutazione molto alta, servizi specialistici che vanno dalla meccatronica alle auto ibride ed elettriche. Si capisce subito che dietro c'e una realta competente e aggiornata.
+[Apertura: osservazione specifica su di loro, qualcosa di reale]
 
-Poi ho visitato il sito.
-Le informazioni ci sono, ma l'immagine che trasmette online non rende giustizia al livello dell'officina. Grafica datata, struttura poco immediata e contenuti che rischiano di far percepire un'azienda diversa da quella che i clienti trovano realmente.
+[Sviluppo: problema concreto e conseguenza pratica per loro]
 
-Ed e un peccato, perche oggi molti clienti si fanno un'idea della professionalita di un'attivita gia nei primi 10 secondi sul sito.
+[Proposta: bozza gratuita senza impegno]
 
-Lavoro con Studio Brillo e realizzo siti web per attivita locali che vogliono una presenza online all'altezza del servizio che offrono ogni giorno.
-
-Se vi fa piacere, posso prepararvi gratuitamente una bozza grafica di come potrebbe apparire oggi il sito, senza alcun impegno. Se vi piace ne parliamo, altrimenti nessun problema.
-
-Resto a disposizione e vi auguro buon lavoro.
 Nicolo
 Studio Brillo
 studiobrillo.com
----
 
-REGOLE FERREE:
-- Usa l'hook di apertura fornito se disponibile, adattandolo in modo naturale
-- Stessa struttura: apertura specifica e personale, osservazione sul sito, conseguenza pratica, proposta soft
-- MAI dire che il sito non si apre se non sei certo
-- MAI inventare dati non forniti
-- MAI tono da venditore o formule burocratiche
-- Oggetto specifico per questa attivita
-- Firma: Nicolo / Studio Brillo / studiobrillo.com
-- Niente em dash, lunghezza simile all'esempio
+REGOLE:
+- Se hai un messaggio di partenza, usalo come base ed espandilo mantenendo il tono umano
+- Mai inventare dati non forniti
+- Mai dire che il sito non si apre se non sei certo
+- Niente em dash, niente formule burocratiche
+- Tono da persona reale, non da agenzia
+- Lunghezza: 150-200 parole corpo
 
-Scrivi l'email completa con oggetto, corpo e firma.`,
+Scrivi solo l'email completa.`,
         }],
       },
       { headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01" } }
@@ -545,16 +532,49 @@ app.post("/api/run", async (req, res) => {
             "https://api.anthropic.com/v1/messages",
             {
               model: "claude-haiku-4-5-20251001",
-              max_tokens: 800,
+              max_tokens: 1000,
               messages: [{
                 role: "user",
-                content: `${CRITERI}${calibNote}\n\n${segnali}\n\nTesto homepage:\n${lead.content}\n\nRispondi SOLO in JSON valido:\n{"criteri":{"mobile":<1-10>,"velocita":<1-10>,"cta":<1-10>,"seo":<1-10>,"design":<1-10>,"social":<1-10>,"contatti":<1-10>},"score":<1-7>,"issues":["prob1","prob2"],"punti_forti":["punto1"],"hook_mail":"Una frase di apertura personalizzata per una cold email, basata su qualcosa di SPECIFICO e reale trovato sul sito (un servizio particolare, una frase del sito, un dettaglio unico). Deve sembrare scritta da un essere umano che ha visitato davvero il sito. Max 2 righe."}`,
+                content: `You are a senior local marketing strategist. Analyze this business homepage and return ONLY valid JSON, no extra text, no markdown backticks.
+
+Business name: ${lead.name}
+Category: ${settore}
+City: ${lead.city}
+
+Technical signals:
+${segnali}
+
+Homepage content:
+---
+${lead.content}
+---
+
+Return this JSON:
+{
+  "diagnosis": "<50 words max: what is concretely wrong with their online presence and what revenue is leaking. No buzzwords. Specific.>",
+  "site_brief": "<100 words max: hero angle, key services to highlight, tone that fits the industry, the CTA that will convert, one design choice that sets them apart from local competitors>",
+  "cold_message": "<70 words max: opens with ONE specific observation about THIS business taken from the homepage content, references their actual service or location, ends with a soft ask to see a mockup. Real person tone, no corporate language, no mention of AI. Sign off: Nicolo — studiobrillo.com>",
+  "score_totale": <1-10 overall UX score, 1=terrible 10=excellent>,
+  "problemi_principali": ["problema1", "problema2", "problema3"],
+  "criteri": {"mobile":<1-10>,"velocita":<1-10>,"cta":<1-10>,"seo":<1-10>,"design":<1-10>,"social":<1-10>,"contatti":<1-10>}
+}`,
               }],
             },
             { headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01" } }
           );
           const parsed = JSON.parse(resp.data.content[0].text.match(/\{[\s\S]*\}/)[0]);
-          return { ...lead, score: parsed.score, issues: parsed.issues || [], punti_forti: parsed.punti_forti || [], criteri: parsed.criteri || {}, hook_mail: parsed.hook_mail || "" };
+          // Converti score_totale (1-10) in score (1-7) per coerenza con il resto
+          const score7 = Math.round((parsed.score_totale / 10) * 7) || 0;
+          return {
+            ...lead,
+            score: score7,
+            issues: parsed.problemi_principali || [],
+            punti_forti: [],
+            criteri: parsed.criteri || {},
+            hook_mail: parsed.cold_message || "",
+            site_brief: parsed.site_brief || "",
+            diagnosis: parsed.diagnosis || "",
+          };
         } catch (err) {
           console.error("SCORING ERROR:", lead.name, err.message);
           return { ...lead, score: 0, issues: ["errore analisi"], punti_forti: [], criteri: {} };
@@ -586,6 +606,8 @@ app.post("/api/run", async (req, res) => {
               Issues: (l.issues || []).join(" | "),
               "Punti forti": (l.punti_forti || []).join(" | "),
               "Hook mail": l.hook_mail || "",
+              "Site brief": l.site_brief || "",
+              "Diagnosis": l.diagnosis || "",
               Zona: zona, Settore: settore, RunId: runId,
             },
           })),
