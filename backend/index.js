@@ -462,12 +462,13 @@ app.post("/api/run", async (req, res) => {
     const geo = await geocode(zona);
     const apifyInput = { maxCrawledPlacesPerSearch: maxResults || 30, language: "it", scrapeContacts: true, searchStringsArray: [settore] };
 
-    if (geo && raggio && Number(raggio) > 0) {
-      apifyInput.customGeolocation = { type: "Point", coordinates: [geo.lon, geo.lat], radiusKm: Number(raggio) };
-      send({ step: 1, label: `${zona} trovata, raggio ${raggio}km. Avvio scraping...` });
+    if (geo) {
+      // Usa sempre le coordinate quando disponibili — locationQuery causa risultati casuali
+      apifyInput.customGeolocation = { type: "Point", coordinates: [geo.lon, geo.lat], radiusKm: Number(raggio) > 0 ? Number(raggio) : 5 };
+      send({ step: 1, label: `${zona} (${geo.lat.toFixed(4)}, ${geo.lon.toFixed(4)}), raggio ${apifyInput.customGeolocation.radiusKm}km. Avvio scraping...` });
     } else {
       apifyInput.locationQuery = `${zona}, Italia`;
-      send({ step: 1, label: "Avvio scraping Google Maps..." });
+      send({ step: 1, label: `Coordinate non trovate, uso locationQuery. Avvio scraping...` });
     }
 
     let places = [];
