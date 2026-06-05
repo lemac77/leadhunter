@@ -17,11 +17,6 @@ const statoStyle = (st) => {
   return                           { bg:AN2,       col:MU,        bd:BD };
 };
 
-function StatoBadge({ stato }) {
-  const { bg, col, bd } = statoStyle(stato || "da inviare");
-  return <span style={{ display:"inline-block", padding:"3px 10px", borderRadius:4, fontSize:10, letterSpacing:"1px", textTransform:"uppercase", fontWeight:500, background:bg, color:col, border:`1px solid ${bd}` }}>{stato || "da inviare"}</span>;
-}
-
 function StatoDropdown({ lead, onChange }) {
   const st = lead.email_stato || "da inviare";
   const { bg, col, bd } = statoStyle(st);
@@ -42,13 +37,13 @@ const scorePill = (sc) => {
 };
 
 const btn = {
-  y:       { background:Y, color:BK, border:"none", padding:"10px 20px", borderRadius:6, fontSize:12, fontWeight:600, cursor:"pointer", letterSpacing:"1px", textTransform:"uppercase" },
-  ghost:   { background:"transparent", border:`1px solid ${BD2}`, borderRadius:6, padding:"10px 14px", fontSize:11, letterSpacing:"1px", textTransform:"uppercase", color:MU, cursor:"pointer" },
-  sm:      { background:"transparent", border:`1px solid ${BD2}`, borderRadius:5, padding:"6px 12px", fontSize:11, cursor:"pointer", color:MU },
-  gen:     { background:Y, border:"none", borderRadius:5, padding:"6px 12px", fontSize:11, cursor:"pointer", color:BK, fontWeight:600 },
-  del:     { background:"transparent", border:"1px solid #4d0000", borderRadius:5, padding:"6px 12px", fontSize:11, cursor:"pointer", color:"#F09595" },
-  lucez:   { background:"#1a1740", border:`1px solid ${LUCEZ_COL}`, borderRadius:5, padding:"6px 14px", fontSize:11, cursor:"pointer", color:LUCEZ_COL, fontWeight:600 },
-  nico:    { background:"#2a1515", border:`1px solid ${NICO_COL}`,  borderRadius:5, padding:"6px 14px", fontSize:11, cursor:"pointer", color:NICO_COL,  fontWeight:600 },
+  y:     { background:Y, color:BK, border:"none", padding:"10px 20px", borderRadius:6, fontSize:12, fontWeight:600, cursor:"pointer", letterSpacing:"1px", textTransform:"uppercase" },
+  ghost: { background:"transparent", border:`1px solid ${BD2}`, borderRadius:6, padding:"10px 14px", fontSize:11, letterSpacing:"1px", textTransform:"uppercase", color:MU, cursor:"pointer" },
+  sm:    { background:"transparent", border:`1px solid ${BD2}`, borderRadius:5, padding:"6px 12px", fontSize:11, cursor:"pointer", color:MU },
+  gen:   { background:Y, border:"none", borderRadius:5, padding:"6px 12px", fontSize:11, cursor:"pointer", color:BK, fontWeight:600 },
+  del:   { background:"transparent", border:"1px solid #4d0000", borderRadius:5, padding:"6px 12px", fontSize:11, cursor:"pointer", color:"#F09595" },
+  lucez: { background:"#1a1740", border:`1px solid ${LUCEZ_COL}`, borderRadius:5, padding:"6px 14px", fontSize:11, cursor:"pointer", color:LUCEZ_COL, fontWeight:600 },
+  nico:  { background:"#2a1515", border:`1px solid ${NICO_COL}`,  borderRadius:5, padding:"6px 14px", fontSize:11, cursor:"pointer", color:NICO_COL,  fontWeight:600 },
 };
 
 const CRIT_LABELS = { mobile:"Mobile", velocita:"Velocita", cta:"CTA", seo:"SEO", design:"Design", social:"Social", contatti:"Contatti" };
@@ -126,7 +121,6 @@ function Overview({ leads, runs, setTab }) {
           </div>
         ))}
       </div>
-
       <div style={{ background:AN, border:`1px solid ${BD}`, borderRadius:10, padding:"18px 16px" }}>
         <div style={{ fontSize:10, letterSpacing:"2px", textTransform:"uppercase", color:MU, marginBottom:16 }}>Run recenti</div>
         {runs.length === 0 && <div style={{ fontSize:13, color:MU }}>Nessun run. Vai su Pipeline.</div>}
@@ -204,7 +198,6 @@ function Pipeline({ onRunComplete }) {
           {runState==="running" ? "In esecuzione..." : "Lancia pipeline"}
         </button>
       </div>
-
       {runState && (
         <div style={{ background:AN, border:`1px solid ${BD}`, borderRadius:10, padding:"18px 16px" }}>
           <div style={{ background:AN2, borderRadius:8, padding:"12px 14px", display:"flex", alignItems:"center", gap:12, marginBottom:12 }}>
@@ -240,7 +233,10 @@ function LeadCard({ lead, onApprove, onScarta, onDelete, onGen, onStato, generat
         <span style={scorePill(lead.score)}>{lead.score || "n/d"}</span>
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontSize:14, fontWeight:500, color:TX, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{lead.name}</div>
-          <div style={{ fontSize:11, color:MU, marginTop:2 }}>{lead.city}{lead.telefono ? ` · ${lead.telefono}` : ""}</div>
+          <div style={{ fontSize:11, color:MU, marginTop:2 }}>
+            {lead.city}
+            {lead.rating > 0 && <span style={{ marginLeft:8, color:"#EF9F27" }}>★ {lead.rating}</span>}
+          </div>
         </div>
         <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0 }}>
           {isApproved && <span style={{ fontSize:10, color:assignedCol||Y, background:assignedCol?"rgba(123,111,255,0.1)":"#0d1a00", border:`1px solid ${assignedCol||"#3a4f00"}`, borderRadius:4, padding:"2px 7px", textTransform:"uppercase", letterSpacing:"0.5px" }}>{lead.assegnato || "ok"}</span>}
@@ -263,7 +259,6 @@ function LeadCard({ lead, onApprove, onScarta, onDelete, onGen, onStato, generat
           ) : (
             <div style={{ margin:"12px 0", padding:"10px 12px", background:AN, border:`1px solid ${BD}`, borderRadius:7, fontSize:12, color:MU }}>Sito non analizzato. Controllalo a mano.</div>
           )}
-
           {issues.length > 0 && <div style={{ marginBottom:10 }}>
             <div style={{ fontSize:10, letterSpacing:"1px", textTransform:"uppercase", color:"#F09595", marginBottom:5 }}>Punti deboli</div>
             {issues.map((x,i) => <div key={i} style={{ fontSize:12, color:TX, marginBottom:3 }}>· {x}</div>)}
@@ -272,14 +267,12 @@ function LeadCard({ lead, onApprove, onScarta, onDelete, onGen, onStato, generat
             <div style={{ fontSize:10, letterSpacing:"1px", textTransform:"uppercase", color:"#97C459", marginBottom:5 }}>Punti di forza</div>
             {forti.map((x,i) => <div key={i} style={{ fontSize:12, color:TX, marginBottom:3 }}>· {x}</div>)}
           </div>}
-
           <div style={{ fontSize:12, color:MU, marginBottom:12 }}>
             {lead.sito && <div><a href={lead.sito} target="_blank" rel="noreferrer" style={{ color:Y }}>{lead.sito}</a></div>}
             {lead.email_addr && <div style={{ marginTop:3 }}>✉ {lead.email_addr}</div>}
+            {lead.telefono && <div style={{ marginTop:3 }}><a href={`tel:${lead.telefono.replace(/\s/g,"")}`} style={{ color:Y, textDecoration:"none" }}>📞 {lead.telefono}</a></div>}
           </div>
-
           {lead.email_body && <div style={{ fontSize:12, color:TX, lineHeight:1.7, background:AN, border:`1px solid ${BD}`, borderRadius:7, padding:"12px", marginBottom:12, whiteSpace:"pre-wrap" }}>{lead.email_body}</div>}
-
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
             {!isApproved && <button style={{ ...btn.y, padding:"8px 16px", fontSize:11 }} onClick={() => onApprove(lead)}>Approva</button>}
             {isApproved && !lead.email_body && <button style={btn.gen} onClick={() => onGen(lead)} disabled={generating}>{generating?"...":"Genera email"}</button>}
@@ -315,14 +308,15 @@ function ColdCard({ lead, onScarta, onDelete, onGen, onStato, generating }) {
               <span style={{ fontSize:10, color:assignedCol, background:lead.assegnato==="Lucez"?"rgba(123,111,255,0.15)":"rgba(255,107,107,0.15)", border:`1px solid ${assignedCol}`, borderRadius:4, padding:"2px 8px", textTransform:"uppercase", letterSpacing:"0.5px", flexShrink:0 }}>{lead.assegnato}</span>
             </div>
             <div style={{ fontSize:11, color:MU, marginTop:3, display:"flex", flexWrap:"wrap", gap:8, alignItems:"center" }}>
-              {lead.city}
+              <span>{lead.city}</span>
               {lead.rating > 0 && <span style={{ color:"#EF9F27" }}>★ {lead.rating}</span>}
               {lead.telefono && <a href={`tel:${lead.telefono.replace(/\s/g,"")}`} style={{ color:Y, textDecoration:"none" }}>📞 {lead.telefono}</a>}
             </div>
             {lead.email_addr && (
-              <div style={{ fontSize:11, color:MU, marginTop:2, display:"flex", alignItems:"center", gap:8 }}>
+              <div style={{ fontSize:11, color:MU, marginTop:2, display:"flex", alignItems:"center", gap:6 }}>
                 <span>✉ {lead.email_addr}</span>
-                <button style={{ background:"transparent", border:`1px solid ${BD2}`, borderRadius:3, padding:"1px 7px", fontSize:10, color:MU, cursor:"pointer" }} onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(lead.email_addr); }}>Copia</button>
+                <button style={{ background:"transparent", border:`1px solid ${BD2}`, borderRadius:3, padding:"1px 7px", fontSize:10, color:MU, cursor:"pointer" }}
+                  onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(lead.email_addr); }}>Copia</button>
               </div>
             )}
             {lead.sito && <a href={lead.sito} target="_blank" rel="noreferrer" style={{ fontSize:11, color:Y, display:"block", marginTop:2 }}>{lead.sito}</a>}
@@ -330,7 +324,7 @@ function ColdCard({ lead, onScarta, onDelete, onGen, onStato, generating }) {
           <StatoDropdown lead={lead} onChange={onStato} />
         </div>
 
-        {lead.issues && (lead.issues||"").split(" | ").filter(Boolean).length > 0 && (
+        {(lead.issues||"").split(" | ").filter(Boolean).length > 0 && (
           <div style={{ fontSize:11, color:"#F09595", marginBottom:10 }}>
             {(lead.issues||"").split(" | ").filter(Boolean).map((x,i) => <span key={i} style={{ marginRight:10 }}>· {x}</span>)}
           </div>
@@ -368,12 +362,12 @@ function ColdCard({ lead, onScarta, onDelete, onGen, onStato, generating }) {
   );
 }
 
+// ─── COLLAPSIBLE RUN GROUPS ───────────────────────────────────────────────────
 function CollapsibleRunGroups({ runGroups, runs, search, genId, onApprove, onScarta, onDelete, onGen, onStato, onDeleteRun }) {
   const [openGroups, setOpenGroups] = useState(() => {
     const first = runGroups[0]?.runId;
     return first ? { [first]: true } : {};
   });
-
   const toggle = (runId) => setOpenGroups((prev) => ({ ...prev, [runId]: !prev[runId] }));
 
   return (
@@ -383,13 +377,10 @@ function CollapsibleRunGroups({ runGroups, runs, search, genId, onApprove, onSca
         const run = runs.find((r) => r.runId === runId);
         const isOpen = !!openGroups[runId];
         const approvati = filtered.filter((l) => l.fb === "ok").length;
-
         return (
           <div key={runId} style={{ marginBottom:12 }}>
-            <div
-              style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 16px", background:AN, border:`1px solid ${BD}`, borderRadius: isOpen ? "9px 9px 0 0" : 9, cursor:"pointer" }}
-              onClick={() => toggle(runId)}
-            >
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 16px", background:AN, border:`1px solid ${BD}`, borderRadius: isOpen ? "9px 9px 0 0" : 9, cursor:"pointer" }}
+              onClick={() => toggle(runId)}>
               <div style={{ display:"flex", alignItems:"center", gap:12 }}>
                 <span style={{ fontSize:14, color:isOpen?TX:MU }}>{isOpen ? "▾" : "▸"}</span>
                 <div>
@@ -425,20 +416,18 @@ function Leads({ leads, setLeads, runs }) {
   const [assegnaModal, setAssegnaModal] = useState(null);
 
   const onApprove = (lead) => setAssegnaModal(lead);
-
   const onAssegna = async (lead, persona) => {
     await fetch(`${API}/api/feedback`, { method:"POST", headers:authHeaders({"Content-Type":"application/json"}), body:JSON.stringify({ id:lead.id, feedback:"ok" }) });
     await fetch(`${API}/api/assegna`,  { method:"POST", headers:authHeaders({"Content-Type":"application/json"}), body:JSON.stringify({ id:lead.id, assegnato:persona }) });
     setLeads((p) => p.map((l) => l.id===lead.id ? {...l, fb:"ok", assegnato:persona} : l));
     setAssegnaModal(null);
   };
-
   const onScarta = async (lead) => {
     await fetch(`${API}/api/scarta`, { method:"POST", headers:authHeaders({"Content-Type":"application/json"}), body:JSON.stringify({ id:lead.id }) });
     setLeads((p) => p.map((l) => l.id===lead.id ? {...l, fb:"scartato"} : l));
   };
   const onDelete = async (lead) => {
-    if (!window.confirm(`Eliminare ${lead.name}?`)) return;
+    if (!window.confirm(`Eliminare definitivamente ${lead.name}? Questa operazione non si puo annullare.`)) return;
     await fetch(`${API}/api/delete-lead`, { method:"POST", headers:authHeaders({"Content-Type":"application/json"}), body:JSON.stringify({ id:lead.id }) });
     setLeads((p) => p.filter((l) => l.id!==lead.id));
   };
@@ -456,21 +445,29 @@ function Leads({ leads, setLeads, runs }) {
     setLeads((p) => p.map((l) => l.id===lead.id ? {...l, email_stato:stato} : l));
   };
   const onDeleteRun = async (runId) => {
-    if (!window.confirm("Eliminare tutti i lead di questo run?")) return;
+    if (!window.confirm("ATTENZIONE: questa operazione elimina definitivamente tutti i lead di questo run. Sei sicuro?")) return;
     await fetch(`${API}/api/delete-run`, { method:"POST", headers:authHeaders({"Content-Type":"application/json"}), body:JSON.stringify({ runId }) });
     setLeads((p) => p.filter((l) => l.runId!==runId));
     if (selectedRun===runId) setSelectedRun("tutti");
   };
 
   const allVisible = leads.filter((l) => l.fb!=="scartato");
-  const runGroups = selectedRun==="tutti"
-    ? [...new Set(allVisible.map((l) => l.runId||"senza-run"))].map((rid) => ({ runId:rid, items:allVisible.filter((l) => (l.runId||"senza-run")===rid) }))
-    : [{ runId:selectedRun, items:allVisible.filter((l) => l.runId===selectedRun) }];
+  const runGroups = (() => {
+    const rids = selectedRun==="tutti"
+      ? [...new Set(allVisible.map((l) => l.runId||"senza-run"))]
+      : [selectedRun];
+    // Ordina per posizione nel array runs (runs e gia ordinato desc per data)
+    rids.sort((a, b) => {
+      const ia = runs.findIndex((r) => r.runId===a);
+      const ib = runs.findIndex((r) => r.runId===b);
+      return (ia===-1?999:ia) - (ib===-1?999:ib);
+    });
+    return rids.map((rid) => ({ runId:rid, items:allVisible.filter((l) => (l.runId||"senza-run")===rid) }));
+  })();
 
   return (
     <div>
       {assegnaModal && <AssegnaModal lead={assegnaModal} onAssegna={onAssegna} onClose={() => setAssegnaModal(null)} />}
-
       <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:16 }}>
         <select style={{ background:AN3, border:`1px solid ${BD2}`, borderRadius:6, padding:"11px 13px", fontSize:14, color:TX, outline:"none", width:"100%" }}
           value={selectedRun} onChange={(e) => setSelectedRun(e.target.value)}>
@@ -480,7 +477,6 @@ function Leads({ leads, setLeads, runs }) {
         <input style={{ background:AN3, border:`1px solid ${BD2}`, borderRadius:6, padding:"11px 13px", fontSize:14, color:TX, outline:"none", width:"100%", boxSizing:"border-box" }}
           placeholder="Cerca..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
-
       <CollapsibleRunGroups runGroups={runGroups} runs={runs} search={search} genId={genId}
         onApprove={onApprove} onScarta={onScarta} onDelete={onDelete} onGen={onGen} onStato={onStato} onDeleteRun={onDeleteRun} />
     </div>
@@ -494,13 +490,12 @@ function ColdLeads({ leads, setLeads }) {
   const [statoFilter, setStatoFilter] = useState("tutti");
 
   const approved = leads.filter((l) => l.fb==="ok");
-
   const onScarta = async (lead) => {
     await fetch(`${API}/api/scarta`, { method:"POST", headers:authHeaders({"Content-Type":"application/json"}), body:JSON.stringify({ id:lead.id }) });
     setLeads((p) => p.map((l) => l.id===lead.id ? {...l, fb:"scartato"} : l));
   };
   const onDelete = async (lead) => {
-    if (!window.confirm(`Eliminare ${lead.name}?`)) return;
+    if (!window.confirm(`Eliminare definitivamente ${lead.name}? Questa operazione non si puo annullare.`)) return;
     await fetch(`${API}/api/delete-lead`, { method:"POST", headers:authHeaders({"Content-Type":"application/json"}), body:JSON.stringify({ id:lead.id }) });
     setLeads((p) => p.filter((l) => l.id!==lead.id));
   };
@@ -518,10 +513,12 @@ function ColdLeads({ leads, setLeads }) {
     setLeads((p) => p.map((l) => l.id===lead.id ? {...l, email_stato:stato} : l));
   };
 
-  const lucez  = approved.filter((l) => l.assegnato==="Lucez");
-  const nico   = approved.filter((l) => l.assegnato==="Nico");
-  const lucezClienti = lucez.filter((l) => l.email_stato==="cliente").length;
-  const nicoClienti  = nico.filter((l) => l.email_stato==="cliente").length;
+  const lucez = approved.filter((l) => l.assegnato==="Lucez");
+  const nico  = approved.filter((l) => l.assegnato==="Nico");
+  const slots = [
+    { name:"Lucez", col:LUCEZ_COL, bg:"rgba(123,111,255,0.08)", leads:lucez, clienti:lucez.filter((l) => l.email_stato==="cliente").length },
+    { name:"Nico",  col:NICO_COL,  bg:"rgba(255,107,107,0.08)", leads:nico,  clienti:nico.filter((l) => l.email_stato==="cliente").length },
+  ];
 
   if (approved.length===0) return (
     <div style={{ background:AN, border:`1px solid ${BD}`, borderRadius:10, padding:32, textAlign:"center" }}>
@@ -530,12 +527,12 @@ function ColdLeads({ leads, setLeads }) {
     </div>
   );
 
-  const slots = [
-    { name:"Lucez", col:LUCEZ_COL, bg:"rgba(123,111,255,0.08)", leads:lucez, clienti:lucezClienti },
-    { name:"Nico",  col:NICO_COL,  bg:"rgba(255,107,107,0.08)", leads:nico,  clienti:nicoClienti  },
-  ];
-
-  let filtered = approved;
+  const STATO_ORDER = {"da inviare":0, "inviata":1, "ha risposto":2, "cliente":3};
+  let filtered = [...approved].sort((a, b) => {
+    const sa = STATO_ORDER[a.email_stato||"da inviare"] ?? 0;
+    const sb = STATO_ORDER[b.email_stato||"da inviare"] ?? 0;
+    return sa - sb;
+  });
   if (slotFilter !== "tutti") filtered = filtered.filter((l) => l.assegnato===slotFilter);
   if (statoFilter !== "tutti") filtered = filtered.filter((l) => (l.email_stato||"da inviare")===statoFilter);
 
@@ -577,29 +574,26 @@ function ColdLeads({ leads, setLeads }) {
 // ─── MERCATO TAB ──────────────────────────────────────────────────────────────
 const MERCATO_DATA = [
   {
-    tier: "S",
-    colBg: "#200800", colBd: "#5a2000", colTx: "#EF9F27",
-    items: [
-      { name:"Studi dentistici",        desc:"Margini 60–80% su procedure estetiche. Il titolare è troppo impegnato per curarsi del digitale.", margine:85, sito:15 },
-      { name:"Centri estetici / laser",  desc:"Filler, laser, epilazione. Siti del 2014 con musica autoplay.", margine:80, sito:20 },
-      { name:"Agenzie assicurative",    desc:"Provvigioni ricorrenti, clienti fedeli da anni. Nessun incentivo online finché non arriva un competitor.", margine:75, sito:10 },
-      { name:"Avvocati / notai",        desc:"Tariffari alti, cliente acquisito per referral. Sito fatto dal nipote nel 2011.", margine:78, sito:8 },
+    tier:"S", colBg:"#200800", colBd:"#5a2000", colTx:"#EF9F27",
+    items:[
+      { name:"Studi dentistici",       desc:"Margini 60-80% su procedure estetiche. Il titolare e troppo impegnato per curarsi del digitale.", margine:85, sito:15 },
+      { name:"Centri estetici / laser", desc:"Filler, laser, epilazione. Siti del 2014 con musica autoplay.", margine:80, sito:20 },
+      { name:"Agenzie assicurative",   desc:"Provvigioni ricorrenti, clienti fedeli da anni. Nessun incentivo online finche non arriva un competitor.", margine:75, sito:10 },
+      { name:"Avvocati / notai",       desc:"Tariffari alti, cliente acquisito per referral. Sito fatto dal nipote nel 2011.", margine:78, sito:8 },
     ],
   },
   {
-    tier: "A",
-    colBg: "#1a1a00", colBd: "#4a4a00", colTx: Y,
-    items: [
-      { name:"Fisioterapisti / osteopati", desc:"€60–120/seduta, agenda sempre piena. Nessun SEO locale, zero Google Ads.", margine:68, sito:25 },
-      { name:"Imprese edili / serramentisti", desc:"Lavori da €5k–100k. Vivono di passaparola, ma la prima pagina Google vale oro.", margine:60, sito:22 },
-      { name:"Commercialisti / consulenti", desc:"Ricavi annui per cliente altissimi, retention ottima. Sito istituzionale fermo al 2016.", margine:70, sito:18 },
-      { name:"Scuole guida",              desc:"Ticket medio €1.000–2.000 per patente. Prenotazioni ancora al telefono.", margine:55, sito:20 },
+    tier:"A", colBg:"#1a1a00", colBd:"#4a4a00", colTx:Y,
+    items:[
+      { name:"Fisioterapisti / osteopati",      desc:"60-120 euro/seduta, agenda sempre piena. Nessun SEO locale, zero Google Ads.", margine:68, sito:25 },
+      { name:"Imprese edili / serramentisti",   desc:"Lavori da 5k-100k euro. Vivono di passaparola, ma la prima pagina Google vale oro.", margine:60, sito:22 },
+      { name:"Commercialisti / consulenti",     desc:"Ricavi annui per cliente altissimi, retention ottima. Sito istituzionale fermo al 2016.", margine:70, sito:18 },
+      { name:"Scuole guida",                    desc:"Ticket medio 1.000-2.000 euro per patente. Prenotazioni ancora al telefono.", margine:55, sito:20 },
     ],
   },
   {
-    tier: "B",
-    colBg: "#001a08", colBd: "#004020", colTx: "#97C459",
-    items: [
+    tier:"B", colBg:"#001a08", colBd:"#004020", colTx:"#97C459",
+    items:[
       { name:"Parrucchieri / barbieri premium", desc:"Margine alto sul servizio, clientela fidelizzata. Instagram ok ma sito inesistente.", margine:50, sito:30 },
       { name:"Palestre / personal trainer",     desc:"Abbonamenti ricorrenti, buona LTV. Sito spesso con un template gratuito.", margine:48, sito:35 },
     ],
@@ -621,14 +615,10 @@ function MercatoBar({ value, type }) {
 
 function Mercato({ setTab }) {
   const [activeTier, setActiveTier] = useState("tutti");
-
-  const visible = activeTier === "tutti"
-    ? MERCATO_DATA
-    : MERCATO_DATA.filter((g) => g.tier === activeTier);
+  const visible = activeTier==="tutti" ? MERCATO_DATA : MERCATO_DATA.filter((g) => g.tier===activeTier);
 
   return (
     <div>
-      {/* Header info */}
       <div style={{ background:AN, border:`1px solid ${BD}`, borderRadius:10, padding:"16px 16px", marginBottom:16, display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10 }}>
         <div>
           <div style={{ fontSize:10, letterSpacing:"2px", textTransform:"uppercase", color:MU, marginBottom:4 }}>Analisi mercato locale</div>
@@ -637,20 +627,17 @@ function Mercato({ setTab }) {
         <button style={{ ...btn.y, padding:"8px 16px", fontSize:11 }} onClick={() => setTab("pipeline")}>Lancia run</button>
       </div>
 
-      {/* Filtro tier */}
       <div style={{ display:"flex", gap:8, marginBottom:16 }}>
         {["tutti","S","A","B"].map((t) => (
           <button key={t} style={{ ...btn.sm, color:activeTier===t?Y:MU, borderColor:activeTier===t?"#3a4f00":BD2, background:activeTier===t?"#0d1a00":"transparent", fontWeight:activeTier===t?600:400 }}
             onClick={() => setActiveTier(t)}>
-            {t === "tutti" ? "Tutti" : `Tier ${t}`}
+            {t==="tutti" ? "Tutti" : `Tier ${t}`}
           </button>
         ))}
       </div>
 
-      {/* Gruppi */}
       {visible.map((group) => (
         <div key={group.tier} style={{ marginBottom:20 }}>
-          {/* Tier header */}
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
             <span style={{ background:group.colBg, border:`1px solid ${group.colBd}`, color:group.colTx, borderRadius:6, padding:"4px 12px", fontSize:11, fontWeight:600, letterSpacing:"2px", textTransform:"uppercase" }}>
               Tier {group.tier}
@@ -658,8 +645,6 @@ function Mercato({ setTab }) {
             <div style={{ flex:1, height:1, background:BD }} />
             <span style={{ fontSize:11, color:MU }}>{group.items.length} categorie</span>
           </div>
-
-          {/* Cards */}
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {group.items.map((item) => (
               <div key={item.name} style={{ background:AN2, border:`1px solid ${group.colBd}`, borderLeft:`3px solid ${group.colTx}`, borderRadius:9, padding:"14px 16px" }}>
@@ -668,12 +653,7 @@ function Mercato({ setTab }) {
                     <div style={{ fontSize:14, fontWeight:500, color:TX, marginBottom:4 }}>{item.name}</div>
                     <div style={{ fontSize:12, color:MU, lineHeight:1.5 }}>{item.desc}</div>
                   </div>
-                  <button
-                    style={{ ...btn.sm, flexShrink:0, fontSize:10, padding:"5px 10px", color:group.colTx, borderColor:group.colBd }}
-                    onClick={() => setTab("pipeline")}
-                  >
-                    Run
-                  </button>
+                  <button style={{ ...btn.sm, flexShrink:0, fontSize:10, padding:"5px 10px", color:group.colTx, borderColor:group.colBd }} onClick={() => setTab("pipeline")}>Run</button>
                 </div>
                 <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
                   <MercatoBar value={item.margine} type="margine" />
@@ -685,21 +665,12 @@ function Mercato({ setTab }) {
         </div>
       ))}
 
-      {/* Legenda */}
       <div style={{ background:AN, border:`1px solid ${BD}`, borderRadius:9, padding:"12px 16px", marginTop:8 }}>
         <div style={{ fontSize:10, letterSpacing:"1px", textTransform:"uppercase", color:MU, marginBottom:10 }}>Legenda barre</div>
         <div style={{ display:"flex", gap:20, flexWrap:"wrap" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <div style={{ width:28, height:5, background:"#639922", borderRadius:3 }} />
-            <span style={{ fontSize:12, color:MU }}>Margine stimato</span>
-          </div>
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <div style={{ width:28, height:5, background:"#E24B4A", borderRadius:3 }} />
-            <span style={{ fontSize:12, color:MU }}>Qualità sito attuale</span>
-          </div>
-          <div style={{ fontSize:12, color:MU2, marginTop:2, width:"100%" }}>
-            Gap tra le due barre = opportunità. Più è largo, meglio è.
-          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}><div style={{ width:28, height:5, background:"#639922", borderRadius:3 }} /><span style={{ fontSize:12, color:MU }}>Margine stimato</span></div>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}><div style={{ width:28, height:5, background:"#E24B4A", borderRadius:3 }} /><span style={{ fontSize:12, color:MU }}>Qualita sito attuale</span></div>
+          <div style={{ fontSize:12, color:MU2, marginTop:2, width:"100%" }}>Gap tra le due barre = opportunita. Piu e largo, meglio e.</div>
         </div>
       </div>
     </div>
@@ -710,12 +681,12 @@ function Mercato({ setTab }) {
 const TABS = ["overview","pipeline","leads","cold leads","mercato"];
 
 export default function App() {
-  const [authed,  setAuthed]  = useState(!!sessionStorage.getItem("lh_pw"));
-  const [tab,     setTab]     = useState("overview");
-  const [leads,   setLeads]   = useState([]);
-  const [runs,    setRuns]    = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [wiping,  setWiping]  = useState(false);
+  const [authed,   setAuthed]   = useState(!!sessionStorage.getItem("lh_pw"));
+  const [tab,      setTab]      = useState("overview");
+  const [leads,    setLeads]    = useState([]);
+  const [runs,     setRuns]     = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [wiping,   setWiping]   = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -733,7 +704,7 @@ export default function App() {
   useEffect(() => { if (authed) fetchData(); }, [authed]);
 
   const wipeAll = async () => {
-    if (!window.confirm("Cancellare TUTTO? Operazione irreversibile.")) return;
+    if (!window.confirm("ATTENZIONE: questa operazione cancella TUTTI i lead e run da Airtable. Operazione irreversibile. Sei sicuro?")) return;
     setWiping(true);
     try { await fetch(`${API}/api/wipe-all`, { method:"POST", headers:authHeaders({"Content-Type":"application/json"}), body:"{}" }); await fetchData(); } catch {}
     setWiping(false);
@@ -746,7 +717,6 @@ export default function App() {
 
   return (
     <div style={{ background:BK, fontFamily:"system-ui,sans-serif", minHeight:"100vh" }}>
-      {/* Header */}
       <div style={{ background:AN, borderBottom:`1px solid ${BD}`, padding:"12px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:10 }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <div style={{ width:32, height:32, borderRadius:"50%", border:`1.5px solid ${Y}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:600, color:Y }}>SB</div>
@@ -758,7 +728,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Hamburger menu */}
       {menuOpen && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", zIndex:50 }} onClick={() => setMenuOpen(false)}>
           <div style={{ position:"absolute", top:0, right:0, width:220, height:"100%", background:AN, borderLeft:`1px solid ${BD}`, padding:24 }} onClick={(e) => e.stopPropagation()}>
@@ -769,7 +738,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Nav tabs */}
       <div style={{ background:AN, borderBottom:`1px solid ${BD}`, display:"flex", overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
         {TABS.map((t) => (
           <button key={t} style={{ padding:"12px 14px", fontSize:11, fontWeight:500, letterSpacing:"1px", textTransform:"uppercase", color:tab===t?Y:MU, background:"transparent", border:"none", cursor:"pointer", borderBottom:tab===t?`2px solid ${Y}`:"2px solid transparent", whiteSpace:"nowrap", flexShrink:0 }} onClick={() => setTab(t)}>
@@ -780,7 +748,6 @@ export default function App() {
         ))}
       </div>
 
-      {/* Body */}
       <div style={{ padding:"20px 16px", maxWidth:800, margin:"0 auto" }}>
         {loading ? (
           <div style={{ textAlign:"center", padding:60, color:MU, fontSize:13 }}>Caricamento...</div>
